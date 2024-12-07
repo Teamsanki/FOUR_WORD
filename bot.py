@@ -18,18 +18,35 @@ def fetch_live_score():
         response = requests.get(CRICKET_API_URL, params=params)
         response.raise_for_status()
         matches = response.json().get("data", [])
+
         if not matches:
             return "No live matches available right now."
 
         live_scores = []
         for match in matches:
-            team1 = match.get("teamInfo", [])[0].get("name", "Team 1")
-            team2 = match.get("teamInfo", [])[1].get("name", "Team 2")
-            score = match.get("score", [{}])[0].get("r", "--")
-            overs = match.get("score", [{}])[0].get("o", "--")
+            # Get team information safely
+            team_info = match.get("teamInfo", [])
+            if len(team_info) < 2:  # Check if there are at least two teams
+                continue  # Skip this match if team info is incomplete
+
+            team1 = team_info[0].get("name", "Team 1")
+            team2 = team_info[1].get("name", "Team 2")
+
+            # Get score information safely
+            score_info = match.get("score", [])
+            if len(score_info) < 1:  # Check if there is score info
+                continue  # Skip this match if score info is incomplete
+
+            score = score_info[0].get("r", "--")  # Runs
+            overs = score_info[0].get("o", "--")  # Overs
+
             live_scores.append(f"{team1} vs {team2}: {score}/{overs} overs")
 
-        return "\n".join(live_scores)
+        if live_scores:
+            return "\n".join(live_scores)
+        else:
+            return "No live matches available right now."
+
     except Exception as e:
         return f"Error fetching score: {e}"
 
