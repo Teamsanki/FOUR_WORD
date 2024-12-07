@@ -61,8 +61,8 @@ def start(update: Update, context: CallbackContext) -> None:
     context.bot.send_message(
         chat_id=chat_id,
         text=(
-            f"Hello {user.first_name}!\n\n"
-            "Welcome to the IPL Live Score Bot! 🏏\n"
+            f"Hello {mention} !\n\n"
+            "Welcome to the First Telegram IPL Live Score Bot! 🏏 Bot Owner:- @TSGCODER\n"
             "I will now send you live cricket scores every 3 minutes. Stay tuned!"
         ),
     )
