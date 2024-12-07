@@ -28,16 +28,18 @@ def fetch_live_score():
         
         response.raise_for_status()
         matches = response.json().get("data", [])
+        
         if not matches:
             return "No live matches available right now."
 
         live_scores = []
         for match in matches:
-            # Extracting detailed information about each match
-            team1 = match.get("teamInfo", [])[0].get("name", "Team 1")
-            team2 = match.get("teamInfo", [])[1].get("name", "Team 2")
-            score = match.get("score", [{}])[0].get("r", "--")
-            overs = match.get("score", [{}])[0].get("o", "--")
+            # Safely extract match data with error handling
+            team1 = match.get("teamInfo", [{}])[0].get("name", "Team 1")
+            team2 = match.get("teamInfo", [{}])[1].get("name", "Team 2")
+            score_data = match.get("score", [{}])[0]
+            score = score_data.get("r", "--") if score_data else "--"
+            overs = score_data.get("o", "--") if score_data else "--"
             match_time = match.get("startTime", "N/A")
 
             # Stylish and unique message formatting with emojis and markdown
