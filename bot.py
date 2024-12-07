@@ -57,13 +57,15 @@ def start(update: Update, context: CallbackContext) -> None:
     user = update.effective_user
     chat_id = update.effective_chat.id
 
-    # Send welcome message to the user
+    # Send welcome message to the user with owner info and support channel
     context.bot.send_message(
         chat_id=chat_id,
         text=(
-            f"Hello {mention} !\n\n"
-            "Welcome to the First Telegram IPL Live Score Bot! 🏏 Bot Owner:- @TSGCODER\n"
-            "I will now send you live cricket scores every 3 minutes. Stay tuned!"
+            f"Hello {user.first_name}!\n\n"
+            "Welcome to the IPL Live Score Bot! 🏏\n"
+            "I will now send you live cricket scores every 3 minutes. Stay tuned!\n\n"
+            "This bot is owned by @TSGCODER.\n"
+            "For support, join the channel: @matalbi_duniya"
         ),
     )
 
@@ -80,7 +82,7 @@ def start(update: Update, context: CallbackContext) -> None:
 
     # Send the first live score immediately
     live_score = fetch_live_score()
-    context.bot.send_message(chat_id=chat_id, text=live_score, parse_mode="Markdown")
+    context.bot.send_message(chat_id=chat_id, text=live_score)
 
     # Start sending updates every 3 minutes
     context.job_queue.run_repeating(
