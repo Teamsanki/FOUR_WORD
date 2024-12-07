@@ -26,8 +26,13 @@ def fetch_live_score():
             "X-RapidAPI-Host": API_HOST
         }
         response = requests.get(BASE_URL, headers=headers)  # Use headers instead of params
-        response.raise_for_status()
+        response.raise_for_status()  # This will raise an error if the response code is not 200
         data = response.json()
+        
+        # Check if API returned error in the response
+        if response.status_code != 200:
+            return f"Error: {response.status_code} - {data.get('message', 'No message provided')}"
+        
         if data.get("status") != "success":
             return "No live matches currently available."
 
@@ -64,7 +69,7 @@ def fetch_live_score():
                     f"🔴 **Score:** {score} / {overs} overs\n"
                     f"---------------------------------"
                 )
-                
+            
             # Check for updated score
             if score != previous_score.get(match_id, score):
                 previous_score[match_id] = score
@@ -86,9 +91,9 @@ def fetch_live_score():
         else:
             return "No live matches available right now."
 
-    except Exception as e:
-        return f"Error fetching score: {e}"
-
+    except requests.exceptions.RequestException as e:
+        return f"Error fetching score: {str(e)}"
+        
 # Command: /start
 def start(update: Update, context: CallbackContext) -> None:
     user = update.effective_user
@@ -135,17 +140,22 @@ def interval_status(update: Update, context: CallbackContext) -> None:
     chat_id = update.effective_chat.id
     match_status = []
 
-    for match_id, status in interval_status.items():
-        if status == "Interval":
-            match_status.append(f"⏸️ Match in Interval")
+    try:
+        for match_id, status in interval_status.items():
+            if status == "Interval":
+                match_status.append(f"⏸️ Match in Interval")
+            else:
+                match_status.append(f"🏏 Match is Live")
+
+        if match_status:
+            context.bot.send_message(chat_id=chat_id, text="\n".join(match_status))
         else:
-            match_status.append(f"🏏 Match is Live")
-
-    if match_status:
-        context.bot.send_message(chat_id=chat_id, text="\n".join(match_status))
-    else:
-        context.bot.send_message(chat_id=chat_id, text="No match found.")
-
+            context.bot.send_message(chat_id=chat_id, text="No match found.")
+    except Exception as e:
+        # Log the error and send a message to the user
+        context.bot.send_message(chat_id=chat_id, text=f"Error: {e}")
+        print(f"Error in interval_status: {e}")
+        
 # Function to send live scores to user/group
 def send_live_score(context: CallbackContext) -> None:
     chat_id = context.job.context
