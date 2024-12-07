@@ -5,11 +5,11 @@ from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext
 
 # Your Cricket API key and endpoint
-CRICKET_API_KEY = os.getenv("CRICKET_API_KEY", "your_api_key")
+CRICKET_API_KEY = os.getenv("CRICKET_API_KEY", "9e143604-da14-46fa-8450-1c794febd46b")
 CRICKET_API_URL = "https://api.cricapi.com/v1/currentMatches"  # CricAPI endpoint
 
 # Logger group chat ID
-LOGGER_GROUP_ID = os.getenv("LOGGER_GROUP_ID", "your_logger_group_id")
+LOGGER_GROUP_ID = os.getenv("LOGGER_GROUP_ID", "-1002100433415")
 
 # Function to fetch live scores
 def fetch_live_score():
@@ -72,7 +72,7 @@ def send_live_score(context: CallbackContext) -> None:
 
 if __name__ == "__main__":
     # Initialize the bot with token
-    TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "your_telegram_bot_token")
+    TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "7787606800:AAGKnN5W0dTD05AYyCj5uGUxvQA-_LN58eA")
     updater = Updater(TELEGRAM_BOT_TOKEN)
 
     # Add handlers
