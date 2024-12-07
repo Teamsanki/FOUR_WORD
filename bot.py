@@ -6,7 +6,7 @@ from telegram.ext import Updater, CommandHandler, CallbackContext
 
 # Your Cricket API key and endpoint
 CRICKET_API_KEY = os.getenv("CRICKET_API_KEY", "your_api_key")
-CRICKET_API_URL = "https://api.cricket.com/scores"  # Replace with a real API
+CRICKET_API_URL = "https://api.cricapi.com/v1/currentMatches"  # CricAPI endpoint
 
 # Logger group chat ID
 LOGGER_GROUP_ID = os.getenv("LOGGER_GROUP_ID", "your_logger_group_id")
@@ -14,11 +14,22 @@ LOGGER_GROUP_ID = os.getenv("LOGGER_GROUP_ID", "your_logger_group_id")
 # Function to fetch live scores
 def fetch_live_score():
     try:
-        response = requests.get(CRICKET_API_URL, headers={"Authorization": f"Bearer {CRICKET_API_KEY}"})
+        params = {"apikey": CRICKET_API_KEY}
+        response = requests.get(CRICKET_API_URL, params=params)
         response.raise_for_status()
-        data = response.json()
-        live_score = data.get("live_score", "Score not available right now.")
-        return live_score
+        matches = response.json().get("data", [])
+        if not matches:
+            return "No live matches available right now."
+
+        live_scores = []
+        for match in matches:
+            team1 = match.get("teamInfo", [])[0].get("name", "Team 1")
+            team2 = match.get("teamInfo", [])[1].get("name", "Team 2")
+            score = match.get("score", [{}])[0].get("r", "--")
+            overs = match.get("score", [{}])[0].get("o", "--")
+            live_scores.append(f"{team1} vs {team2}: {score}/{overs} overs")
+
+        return "\n".join(live_scores)
     except Exception as e:
         return f"Error fetching score: {e}"
 
@@ -33,7 +44,7 @@ def start(update: Update, context: CallbackContext) -> None:
         text=(
             f"Hello {user.first_name}!\n\n"
             "Welcome to the IPL Live Score Bot! 🏏\n"
-            "I will send you live IPL scores every 5 minutes. Stay tuned!"
+            "I will send you live cricket scores every 5 minutes. Stay tuned!"
         ),
     )
 
