@@ -3,10 +3,9 @@ import requests
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
 
-# Your API Key from RapidAPI
-API_KEY = "550f533c58msh67f55f4b6af40e6p1234bcjsn7a5ed60ddc3e"  # Replace with your key
-API_HOST = "cricket-live-score.p.rapidapi.com"
-BASE_URL = f"https://{API_HOST}/live"
+# Your API Key from CricAPI
+API_KEY = "9e143604-da14-46fa-8450-1c794febd46b"  # Replace with your CricAPI key
+BASE_URL = f"https://cricapi.com/api/matches?apikey={API_KEY}"
 
 # Logger group chat ID
 LOGGER_GROUP_ID = os.getenv("LOGGER_GROUP_ID", "-1002100433415")
@@ -16,76 +15,58 @@ previous_match_status = {}
 previous_score = {}
 interval_status = {}
 
-# Function to fetch live scores
-# Function to fetch live scores
+# Function to fetch live scores from CricAPI
 def fetch_live_score():
     global previous_match_status, previous_score, interval_status  # Access global previous status and score variables
     try:
-        headers = {
-            "X-RapidAPI-Key": API_KEY,
-            "X-RapidAPI-Host": API_HOST
-        }
-        response = requests.get(BASE_URL, headers=headers)  # Use headers instead of params
+        response = requests.get(BASE_URL)
         response.raise_for_status()  # This will raise an error if the response code is not 200
         data = response.json()
         
         # Check if API returned error in the response
-        if response.status_code != 200:
-            return f"Error: {response.status_code} - {data.get('message', 'No message provided')}"
-        
-        if data.get("status") != "success":
+        if response.status_code != 200 or not data.get('matches'):
             return "No live matches currently available."
 
         live_scores = []
-        for match in data.get("data", []):
-            match_id = match.get("id", "")
-            team_info = match.get("teamInfo", [])
-            if len(team_info) < 2:
-                continue  # Skip if team info is incomplete
-
-            team1 = team_info[0].get("name", "Team 1")
-            team2 = team_info[1].get("name", "Team 2")
-
-            score_info = match.get("score", [])
-            if len(score_info) < 1:
-                continue  # Skip if score info is incomplete
-
-            score = score_info[0].get("r", "--")  # Runs
-            overs = score_info[0].get("o", "--")  # Overs
-            status = match.get("status", "")  # Current status of the match (active or interval)
-
-            # Interval status update
-            if status == "Interval":
-                interval_status[match_id] = "Interval"
-                live_scores.append(
-                    f"🟢 **{team1}** vs **{team2}**\n"
-                    f"⏸️ **Match Interval** - Break in play.\n"
-                    f"---------------------------------"
-                )
-            elif status == "Live":
-                interval_status[match_id] = "Live"
-                live_scores.append(
-                    f"🟢 **{team1}** vs **{team2}**\n"
-                    f"🔴 **Score:** {score} / {overs} overs\n"
-                    f"---------------------------------"
-                )
-            
-            # Check for updated score
-            if score != previous_score.get(match_id, score):
-                previous_score[match_id] = score
-                live_scores.append(
-                    f"🟢 **{team1}** vs **{team2}**\n"
-                    f"🔴 **Updated Score:** {score} / {overs} overs\n"
-                    f"---------------------------------"
-                )
-            else:
-                live_scores.append(
-                    f"🟢 **{team1}** vs **{team2}**\n"
-                    f"🔴 **Old Score:** {score} / {overs} overs\n"
-                    f"*These are old scores. No updates yet.*\n"
-                    f"---------------------------------"
-                )
+        score_updated = False  # Track if there is a score update
         
+        for match in data.get("matches", []):
+            match_id = match.get("unique_id", "")
+            team1 = match.get("team1", "Team 1")
+            team2 = match.get("team2", "Team 2")
+            status = match.get("status", "")  # Match status (LIVE, COMPLETED, etc.)
+            score = match.get("score", "")
+            
+            # Interval status update
+            if status == "Live":
+                if score != previous_score.get(match_id, score):
+                    previous_score[match_id] = score
+                    live_scores.append(
+                        f"🟢 **{team1}** vs **{team2}**\n"
+                        f"🔴 **Updated Score:** {score}\n"
+                        f"---------------------------------"
+                    )
+                    score_updated = True  # Mark as score updated
+                else:
+                    live_scores.append(
+                        f"🟢 **{team1}** vs **{team2}**\n"
+                        f"🔴 **No update yet**\n"
+                        f"⏳ We are monitoring the match. You’ll be notified once the score changes.\n"
+                        f"---------------------------------"
+                    )
+            elif status == "Completed":
+                live_scores.append(
+                    f"⚪ **{team1}** vs **{team2}**\n"
+                    f"✅ **Match Completed**\n"
+                    f"Score: {score}\n"
+                    f"---------------------------------"
+                )
+
+        # If no scores updated, send a reminder
+        if not score_updated:
+            return "🟢 I'm currently monitoring the match. You will be notified once the score is updated!"
+
+        # If score updated, return the updated score
         if live_scores:
             return "\n".join(live_scores)
         else:
@@ -93,7 +74,7 @@ def fetch_live_score():
 
     except requests.exceptions.RequestException as e:
         return f"Error fetching score: {str(e)}"
-        
+
 # Command: /start
 def start(update: Update, context: CallbackContext) -> None:
     user = update.effective_user
@@ -129,14 +110,14 @@ def start(update: Update, context: CallbackContext) -> None:
         send_live_score, interval=180, first=0, context=chat_id
     )
 
-# Command: /update_score
-def update_score(update: Update, context: CallbackContext) -> None:
+# Command: /update
+def update(update: Update, context: CallbackContext) -> None:
     chat_id = update.effective_chat.id
     live_score = fetch_live_score()
     context.bot.send_message(chat_id=chat_id, text=live_score, parse_mode="Markdown")
 
-# Command: /interval_status
-def interval_status(update: Update, context: CallbackContext) -> None:
+# Command: /interval
+def interval(update: Update, context: CallbackContext) -> None:
     chat_id = update.effective_chat.id
     match_status = []
 
@@ -155,7 +136,7 @@ def interval_status(update: Update, context: CallbackContext) -> None:
         # Log the error and send a message to the user
         context.bot.send_message(chat_id=chat_id, text=f"Error: {e}")
         print(f"Error in interval_status: {e}")
-        
+
 # Function to send live scores to user/group
 def send_live_score(context: CallbackContext) -> None:
     chat_id = context.job.context
@@ -214,8 +195,8 @@ if __name__ == "__main__":
     # Add handlers
     dispatcher = updater.dispatcher
     dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("update_score", update_score))
-    dispatcher.add_handler(CommandHandler("interval_status", interval_status))
+    dispatcher.add_handler(CommandHandler("update", update))  # Changed command name to /update
+    dispatcher.add_handler(CommandHandler("interval", interval))  # Changed command name to /interval
     dispatcher.add_handler(MessageHandler(Filters.status_update.new_chat_members, new_member))
     dispatcher.add_handler(MessageHandler(Filters.text, handle_message))  # Handle other messages (like /start)
 
