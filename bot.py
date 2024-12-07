@@ -17,18 +17,22 @@ previous_score = {}
 interval_status = {}
 
 # Function to fetch live scores
+# Function to fetch live scores
 def fetch_live_score():
     global previous_match_status, previous_score, interval_status  # Access global previous status and score variables
     try:
-        params = {"apikey": CRICKET_API_KEY}
-        response = requests.get(CRICKET_API_URL, params=params)
+        headers = {
+            "X-RapidAPI-Key": API_KEY,
+            "X-RapidAPI-Host": API_HOST
+        }
+        response = requests.get(BASE_URL, headers=headers)  # Use headers instead of params
         response.raise_for_status()
-        matches = response.json().get("data", [])
-        if not matches:
-            return "No live matches available right now."
+        data = response.json()
+        if data.get("status") != "success":
+            return "No live matches currently available."
 
         live_scores = []
-        for match in matches:
+        for match in data.get("data", []):
             match_id = match.get("id", "")
             team_info = match.get("teamInfo", [])
             if len(team_info) < 2:
