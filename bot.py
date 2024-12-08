@@ -2,7 +2,7 @@ import random
 import string
 from datetime import datetime, timedelta
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackContext, JobQueue
 from pymongo import MongoClient
 
 # MongoDB Setup
@@ -51,13 +51,10 @@ async def generate_redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "admin": None  # Admin codes are permanent
     }.get(plan)
 
-    # Convert timedelta to days (or None for admin)
-    validity_days = None if validity is None else validity.days
-
     redeem_codes_col.insert_one({
         "code": code,
         "plan": plan,
-        "validity_days": validity_days,  # Store as days
+        "validity": validity,
         "used": False
     })
 
@@ -88,23 +85,16 @@ async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         subscriptions_col.update_one({"user_id": user_id}, {"$set": {"plan": "admin", "expires": None}}, upsert=True)
         await update.message.reply_text("🎉 You are now an admin! Enjoy permanent access.")
     else:
-        # Calculate expiry date
-        if code_data["validity_days"] is not None:
-            expiry_date = datetime.now() + timedelta(days=code_data["validity_days"])
-        else:
-            expiry_date = None  # Admin has no expiry date
-
+        expiry_date = datetime.now() + code_data["validity"]
         subscriptions_col.update_one({"user_id": user_id}, {"$set": {"plan": code_data["plan"], "expires": expiry_date}}, upsert=True)
-        if expiry_date:
-            await update.message.reply_text(f"🎉 Your {code_data['plan'].capitalize()} subscription is now active till {expiry_date.strftime('%Y-%m-%d')}.")
-        else:
-            await update.message.reply_text(f"🎉 You are now an admin with permanent access.")
+        await update.message.reply_text(f"🎉 Your {code_data['plan'].capitalize()} subscription is now active till {expiry_date.strftime('%Y-%m-%d')}.")
 
 # Adding Command
 async def adding(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_data = subscriptions_col.find_one({"user_id": user_id})
 
+    # Check if the user has admin rights or a valid subscription
     if user_id != OWNER_ID and (not user_data or (user_data["plan"] != "admin" and user_data["expires"] < datetime.now())):
         await update.message.reply_text(
             "❌ You need a valid subscription or admin access to use this command.\n"
@@ -117,10 +107,28 @@ async def adding(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     source_group, target_group = context.args
+
+    # Here you would have code that actually handles adding members. 
+    # Since telegram does not provide direct member extraction from groups,
+    # this would require admin access and usage of APIs that the bot can 
+    # use for fetching members.
+    
     await update.message.reply_text(
         f"🔄 Transferring members from {source_group} to {target_group}...\n"
         "(Ensure members are not hidden and you haven't reached the daily limit!)"
     )
+
+# Notify users of Expiry
+async def check_expiries(context: CallbackContext):
+    users = subscriptions_col.find({"expires": {"$ne": None}})
+    for user in users:
+        if user["expires"] < datetime.now():
+            # Notify user if their plan has expired
+            try:
+                await context.bot.send_message(user["user_id"], "❌ Your subscription has expired. Please contact the owner to renew.")
+                subscriptions_col.update_one({"user_id": user["user_id"]}, {"$set": {"plan": "expired", "expires": None}})
+            except Exception as e:
+                print(f"Error notifying user {user['user_id']}: {e}")
 
 # User List (Owner Only)
 async def user_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -147,7 +155,11 @@ async def user_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     user_id = int(context.args[0])
     subscriptions_col.delete_one({"user_id": user_id})
-    await update.message.reply_text(f"✅ User {user_id}'s plan has been deactivated.")
+    try:
+        await update.message.reply_text(f"✅ User {user_id}'s plan has been deactivated.")
+        await context.bot.send_message(user_id, "❌ Your plan has been deactivated by the owner.")
+    except Exception as e:
+        print(f"Error notifying user {user_id}: {e}")
 
 # Data Reset (Owner Only)
 async def data_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -160,7 +172,10 @@ async def data_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Main Function
 if __name__ == "__main__":
-    app = ApplicationBuilder().token("7908847221:AAFo2YqgQ4jYG_Glbp96sINg79zF8T6EWoo").build()
+    app = ApplicationBuilder().token("YOUR_BOT_TOKEN").build()
+
+    job_queue = app.job_queue
+    job_queue.run_repeating(check_expiries, interval=86400, first=10)  # Check for expiries daily
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("genrdm", generate_redeem))
