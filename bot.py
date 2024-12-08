@@ -1,7 +1,7 @@
 import random
 import string
 from datetime import datetime, timedelta
-from telegram import Update
+from telegram import Update, ChatMember
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackContext, JobQueue
 from pymongo import MongoClient
 
@@ -15,6 +15,7 @@ redeem_codes_col = db["redeem_codes"]
 # Bot Variables
 OWNER_ID = 7877197608
 DAILY_ADD_LIMIT = 50
+BOT_NAME = "SANKI ADDER"  # Specify your bot's name
 
 # Helper: Generate Redeem Code
 def generate_code():
@@ -89,7 +90,7 @@ async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         subscriptions_col.update_one({"user_id": user_id}, {"$set": {"plan": code_data["plan"], "expires": expiry_date}}, upsert=True)
         await update.message.reply_text(f"🎉 Your {code_data['plan'].capitalize()} subscription is now active till {expiry_date.strftime('%Y-%m-%d')}.")
 
-# Adding Command
+# Adding Command (No Admin Check)
 async def adding(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_data = subscriptions_col.find_one({"user_id": user_id})
@@ -108,15 +109,16 @@ async def adding(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     source_group, target_group = context.args
 
-    # Here you would have code that actually handles adding members. 
-    # Since telegram does not provide direct member extraction from groups,
-    # this would require admin access and usage of APIs that the bot can 
-    # use for fetching members.
-    
+    # Even if the bot is not an admin in the source group, it will attempt to add members to the target group.
+    # However, ensure that the bot is not added to the source group if it's unnecessary.
+
     await update.message.reply_text(
         f"🔄 Transferring members from {source_group} to {target_group}...\n"
         "(Ensure members are not hidden and you haven't reached the daily limit!)"
     )
+
+    # Proceed with adding members logic, even if the bot is not an admin in the source group.
+    # (The logic of adding members is not implemented here and should be customized according to your bot's purpose.)
 
 # Notify users of Expiry
 async def check_expiries(context: CallbackContext):
@@ -172,7 +174,7 @@ async def data_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Main Function
 if __name__ == "__main__":
-    app = ApplicationBuilder().token("YOUR_BOT_TOKEN").build()
+    app = ApplicationBuilder().token("7908847221:AAFo2YqgQ4jYG_Glbp96sINg79zF8T6EWoo").build()
 
     job_queue = app.job_queue
     job_queue.run_repeating(check_expiries, interval=86400, first=10)  # Check for expiries daily
