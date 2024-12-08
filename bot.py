@@ -1,8 +1,8 @@
 import random
 import telegram
-from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler
 from telegram import Update
-from telegram.ext import filters
+from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
+from telegram.ext import ContextTypes
 from PIL import Image, ImageDraw, ImageFont
 import io
 import nltk
@@ -30,12 +30,12 @@ TOKEN = "7908847221:AAFo2YqgQ4jYG_Glbp96sINg79zF8T6EWoo"
 OWNER_ID = "7877197608"
 
 # Start the bot
-def start(update, context):
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.message.from_user
-    update.message.reply_text(f"Hello {user.first_name}, welcome to the Word Game! Use /game to start playing.")
+    await update.message.reply_text(f"Hello {user.first_name}, welcome to the Word Game! Use /game to start playing.")
 
 # Game command
-def game(update, context):
+async def game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.message.from_user
     opponent = find_opponent(user.id)
 
@@ -49,11 +49,11 @@ def game(update, context):
             "turn": user.id
         }
         game_data_collection.insert_one(game_data)
-        update.message.reply_text(f"Game started with {opponent['first_name']}. Your turn will come soon.")
-        context.bot.send_message(chat_id=opponent["user_id"], text=f"Game started with {user.first_name}. Your turn will come soon.")
-        send_word(update, context)
+        await update.message.reply_text(f"Game started with {opponent['first_name']}. Your turn will come soon.")
+        await context.bot.send_message(chat_id=opponent["user_id"], text=f"Game started with {user.first_name}. Your turn will come soon.")
+        await send_word(update, context)
     else:
-        update.message.reply_text("No opponent available. Please try again later.")
+        await update.message.reply_text("No opponent available. Please try again later.")
 
 # Find an opponent randomly
 def find_opponent(user_id):
@@ -64,12 +64,12 @@ def find_opponent(user_id):
     return None
 
 # Send word for current level
-def send_word(update, context):
+async def send_word(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     game_data = game_data_collection.find_one({"user_id": update.message.from_user.id})
     level = game_data["level"]
     word_length = level + 2  # Adjust word length based on level
     word = generate_word(word_length)
-    context.bot.send_message(chat_id=update.message.from_user.id, text=f"Level {level}: Write a sentence using the word: {word}")
+    await context.bot.send_message(chat_id=update.message.from_user.id, text=f"Level {level}: Write a sentence using the word: {word}")
 
 # Generate random word based on length
 def generate_word(length):
@@ -77,17 +77,17 @@ def generate_word(length):
     return random.choice([w for w in word_list if len(w) == length])
 
 # Process user response
-def handle_message(update, context):
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
     game_data = game_data_collection.find_one({"user_id": user_id})
     
     if game_data and user_id == game_data["turn"]:
-        process_turn(update, context)
+        await process_turn(update, context)
     else:
-        update.message.reply_text("It's not your turn yet.")
+        await update.message.reply_text("It's not your turn yet.")
 
 # Process each turn
-def process_turn(update, context):
+async def process_turn(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
     game_data = game_data_collection.find_one({"user_id": user_id})
     sentence = update.message.text  # Get user input (sentence)
@@ -97,19 +97,19 @@ def process_turn(update, context):
         game_data["level"] += 1  # Increase level
         game_data["turn"] = game_data["opponent_id"]  # Switch turn to the opponent
         game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
-        update.message.reply_text(f"Correct! Your score: {game_data['score']}")
+        await update.message.reply_text(f"Correct! Your score: {game_data['score']}")
     else:
         game_data["lives"] -= 1
         if game_data["lives"] > 0:
             game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
-            update.message.reply_text(f"Wrong! You have {game_data['lives']} lives left.")
+            await update.message.reply_text(f"Wrong! You have {game_data['lives']} lives left.")
         else:
             game_data["turn"] = None  # Game over for the user
             game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
-            update.message.reply_text("Game Over! You lost all lives.")
-            send_game_over_message(update, context)
+            await update.message.reply_text("Game Over! You lost all lives.")
+            await send_game_over_message(update, context)
     
-    send_word(update, context)
+    await send_word(update, context)
 
 # Validate the sentence (checks if all words are in the nltk words corpus)
 def validate_sentence(sentence):
@@ -121,14 +121,14 @@ def validate_sentence(sentence):
     return True
 
 # Send game over message to both players
-def send_game_over_message(update, context):
+async def send_game_over_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
     opponent = game_data_collection.find_one({"user_id": user_id})["opponent_id"]
-    context.bot.send_message(chat_id=user_id, text="Game Over! You lost.")
-    context.bot.send_message(chat_id=opponent, text="You won! The other player lost.")
+    await context.bot.send_message(chat_id=user_id, text="Game Over! You lost.")
+    await context.bot.send_message(chat_id=opponent, text="You won! The other player lost.")
 
 # Leaderboard command
-def rank(update, context):
+async def rank(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     leaderboard = leaderboard_collection.find().sort("score", -1).limit(10)  # Get top 10 players by score
     if leaderboard:
         top_player = leaderboard[0]
@@ -137,9 +137,9 @@ def rank(update, context):
         img = generate_leaderboard_image(name, score)
         photo = telegram.InputFile(img, filename="leaderboard.png")
         
-        update.message.reply_photo(photo=photo, caption=f"Top Player: {name}\nScore: {score}", reply_markup=close_button())
+        await update.message.reply_photo(photo=photo, caption=f"Top Player: {name}\nScore: {score}", reply_markup=close_button())
     else:
-        update.message.reply_text("No leaderboard data available yet.")
+        await update.message.reply_text("No leaderboard data available yet.")
 
 # Generate the leaderboard image using a template image
 def generate_leaderboard_image(name, score):
@@ -164,24 +164,22 @@ def close_button():
     ])
 
 # Handle close button action
-def button(update, context):
+async def button(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
-    query.answer()
-    query.edit_message_text("Leaderboard closed.")
+    await query.answer()
+    await query.edit_message_text("Leaderboard closed.")
 
 # Main entry point
 def main():
-    updater = Updater(TOKEN, use_context=True)
-    dispatcher = updater.dispatcher
+    application = Application.builder().token(TOKEN).build()
 
-    dispatcher.add_handler(CommandHandler("start", start))
-    dispatcher.add_handler(CommandHandler("game", game))
-    dispatcher.add_handler(CommandHandler("rank", rank))
-    dispatcher.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    dispatcher.add_handler(CallbackQueryHandler(button))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("game", game))
+    application.add_handler(CommandHandler("rank", rank))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    application.add_handler(CallbackQueryHandler(button))
 
-    updater.start_polling()
-    updater.idle()
+    application.run_polling()
 
 if __name__ == '__main__':
     main()
