@@ -17,15 +17,15 @@ logger = logging.getLogger(__name__)
 nltk.download('words')
 
 # MongoDB connection string (replace with your actual MongoDB URI)
-MONGO_URL = "mongodb://your_mongo_user:your_mongo_password@your_mongo_host:your_mongo_port/your_database"
+MONGO_URL = "mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 client = MongoClient(MONGO_URL)
 db = client["game_database"]  # Database name
 leaderboard_collection = db["leaderboard"]  # Collection for leaderboard data
 game_data_collection = db["game_data"]  # Collection for ongoing game data
 
 # Token and owner ID (replace with your actual bot token and owner ID)
-TOKEN = "YOUR_BOT_TOKEN"
-OWNER_ID = "YOUR_OWNER_ID"
+TOKEN = "7908847221:AAFo2YqgQ4jYG_Glbp96sINg79zF8T6EWoo"
+OWNER_ID = "7877197608"
 
 # Start the bot
 def start(update, context):
