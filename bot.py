@@ -31,6 +31,8 @@ TOKEN = "7908847221:AAFo2YqgQ4jYG_Glbp96sINg79zF8T6EWoo"
 OWNER_ID = "7877197608"
 
 # Start the bot
+waiting_queue = []  # Queue to hold users who are waiting for an opponent
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.message.from_user
     await update.message.reply_text(f"Hello {user.first_name}, welcome to the Word Game! Use /game to start playing.")
@@ -45,14 +47,16 @@ async def game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("You are already in a game!")
         return
 
-    # Try to find an opponent for the user
-    opponent = await find_opponent(user.id, update, context)
+    # Add user to waiting queue
+    waiting_queue.append(user)
 
-    if opponent:
-        # Create game data with both players
+    if len(waiting_queue) > 1:
+        # Find the opponent (the second player in the queue)
+        opponent = waiting_queue.pop(0)  # The first player in the queue is matched with the second
+        # Start the game between the two users
         game_data = {
             "user_id": user.id,
-            "opponent_id": opponent["user_id"],
+            "opponent_id": opponent.id,
             "level": 1,
             "lives": 3,
             "score": 0,
@@ -63,28 +67,17 @@ async def game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         game_data_collection.insert_one(game_data)
 
         # Notify both players that the game will start in 10 seconds
-        await update.message.reply_text(f"Game started with {opponent['first_name']}. The game will start in 10 seconds...")
-        await context.bot.send_message(chat_id=opponent["user_id"], text=f"Game started with {user.first_name}. The game will start in 10 seconds...")
+        await update.message.reply_text(f"Game started with {opponent.first_name}. The game will start in 10 seconds...")
+        await context.bot.send_message(chat_id=opponent.id, text=f"Game started with {user.first_name}. The game will start in 10 seconds...")
 
         # Wait 10 seconds before starting the game
         await asyncio.sleep(10)
         
         # Send the first word to both players
         await send_word(update, context)
-        await context.bot.send_message(chat_id=opponent["user_id"], text=f"Level 1: Write a sentence using the word.")
+        await context.bot.send_message(chat_id=opponent.id, text=f"Level 1: Write a sentence using the word.")
     else:
-        # Place the user in a waiting state if no opponent is found
         await update.message.reply_text("No opponent available. Please wait for someone to join.")
-
-# Find an opponent who is waiting (not in a game)
-async def find_opponent(user_id, update, context):
-    # Check if there's an opponent available within 10 seconds
-    for _ in range(10):
-        opponent = game_data_collection.find_one({"turn": {"$exists": False}})  # Opponent is not in an active game
-        if opponent and opponent["user_id"] != user_id:
-            return opponent
-        await asyncio.sleep(1)  # Check every second for 10 seconds
-    return None
 
 # Send word for current level
 async def send_word(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -182,26 +175,18 @@ def generate_leaderboard_image(name, score):
 
 # Close button for leaderboard
 def close_button():
-    return telegram.InlineKeyboardMarkup([
-        [telegram.InlineKeyboardButton("Close", callback_data='close')]
-    ])
+    return telegram.ReplyKeyboardRemove()
 
-# Handle close button callback
-async def handle_close(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.delete()
-
-# Main function to start the bot
-def main():
+# Main function to run the bot
+def main() -> None:
     application = Application.builder().token(TOKEN).build()
 
-    # Handlers
+    # Add handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("game", game))
-    application.add_handler(CommandHandler("rank", rank))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    application.add_handler(CallbackQueryHandler(handle_close, pattern='close'))
+    application.add_handler(CommandHandler("rank", rank))
 
-    # Run the bot
     application.run_polling()
 
 if __name__ == "__main__":
