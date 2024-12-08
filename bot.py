@@ -5,7 +5,7 @@ from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
 
 # Bot Variables
-OWNER_ID = 123456789  # Replace with the owner's Telegram ID
+OWNER_ID = 7877197608  # Replace with the owner's Telegram ID
 active_redeem_codes = {}
 user_subscriptions = {}
 
@@ -79,7 +79,7 @@ async def adding(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Main Function
 if __name__ == "__main__":
-    app = ApplicationBuilder().token("YOUR_BOT_TOKEN").build()
+    app = ApplicationBuilder().token("7908847221:AAFo2YqgQ4jYG_Glbp96sINg79zF8T6EWoo").build()
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("genrdm", generate_redeem))
