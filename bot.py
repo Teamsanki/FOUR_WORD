@@ -1,167 +1,185 @@
 import random
-import string
-from datetime import datetime, timedelta
-from telegram import Update, ChatMember
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackContext
+import telegram
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
+from PIL import Image, ImageDraw, ImageFont
+import io
+import nltk
+from nltk.corpus import words
 from pymongo import MongoClient
 
-# MongoDB Setup
-MONGO_URL = "mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+# Initialize the bot and set up logging
+import logging
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Ensure NLTK words corpus is downloaded
+nltk.download('words')
+
+# MongoDB connection string (replace with your actual MongoDB URI)
+MONGO_URL = "mongodb://your_mongo_user:your_mongo_password@your_mongo_host:your_mongo_port/your_database"
 client = MongoClient(MONGO_URL)
-db = client["member_adding_bot"]
-subscriptions_col = db["subscriptions"]
-redeem_codes_col = db["redeem_codes"]
+db = client["game_database"]  # Database name
+leaderboard_collection = db["leaderboard"]  # Collection for leaderboard data
+game_data_collection = db["game_data"]  # Collection for ongoing game data
 
-# Bot Variables
-OWNER_ID = 7877197608
-DAILY_ADD_LIMIT = 50
-BOT_NAME = "SANKI ADDER"  # Specify your bot's name
+# Token and owner ID (replace with your actual bot token and owner ID)
+TOKEN = "YOUR_BOT_TOKEN"
+OWNER_ID = "YOUR_OWNER_ID"
 
-# Helper: Generate Redeem Code
-def generate_code():
-    return "-".join(["".join(random.choices(string.ascii_uppercase + string.digits, k=4)) for _ in range(3)])
+# Start the bot
+def start(update, context):
+    user = update.message.from_user
+    update.message.reply_text(f"Hello {user.first_name}, welcome to the Word Game! Use /game to start playing.")
 
-# Start Command
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    welcome_msg = (
-        "🤖 Welcome to the Member Adding Bot!\n\n"
-        "Use this bot to transfer members from one group to another.\n\n"
-        "Commands:\n"
-        "- `/adding <number_of_members>` to add fake members (Subscription required).\n"
-        "- `/redeem` to activate a plan.\n\n"
-        "Contact the owner for redeem codes!"
-    )
-    await update.message.reply_text(welcome_msg)
+# Game command
+def game(update, context):
+    user = update.message.from_user
+    opponent = find_opponent(user.id)
 
-# Redeem Command
-async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) != 1:
-        await update.message.reply_text("❌ Usage: /redeem <CODE>")
-        return
-
-    code = context.args[0]
-    user_id = update.effective_user.id
-    code_data = redeem_codes_col.find_one({"code": code})
-
-    if not code_data:
-        await update.message.reply_text("❌ Invalid Redeem Code!")
-        return
-
-    if code_data["used"]:
-        await update.message.reply_text("❌ This Redeem Code has already been used!")
-        return
-
-    # Activate subscription
-    redeem_codes_col.update_one({"code": code}, {"$set": {"used": True}})
-
-    if code_data["plan"] == "admin":
-        subscriptions_col.update_one({"user_id": user_id}, {"$set": {"plan": "admin", "expires": None}}, upsert=True)
-        await update.message.reply_text("🎉 You are now an admin! Enjoy permanent access.")
+    if opponent:
+        game_data = {
+            "user_id": user.id,
+            "opponent_id": opponent["user_id"],
+            "level": 1,
+            "lives": 3,
+            "score": 0,
+            "turn": user.id
+        }
+        game_data_collection.insert_one(game_data)
+        update.message.reply_text(f"Game started with {opponent['first_name']}. Your turn will come soon.")
+        context.bot.send_message(chat_id=opponent["user_id"], text=f"Game started with {user.first_name}. Your turn will come soon.")
+        send_word(update, context)
     else:
-        expiry_date = datetime.now() + code_data["validity"]
-        subscriptions_col.update_one({"user_id": user_id}, {"$set": {"plan": code_data["plan"], "expires": expiry_date}}, upsert=True)
-        await update.message.reply_text(f"🎉 Your {code_data['plan'].capitalize()} subscription is now active till {expiry_date.strftime('%Y-%m-%d')}.")
+        update.message.reply_text("No opponent available. Please try again later.")
 
-# Adding Command (Limit 50 Fake Members)
-async def adding(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    user_data = subscriptions_col.find_one({"user_id": user_id})
+# Find an opponent randomly
+def find_opponent(user_id):
+    # Fetch random user from the game data collection who is not currently in a game
+    opponent = game_data_collection.find_one({"turn": {"$exists": False}})
+    if opponent and opponent["user_id"] != user_id:
+        return opponent
+    return None
 
-    # Check if the user has admin rights or a valid subscription
-    if user_id != OWNER_ID and (not user_data or (user_data["plan"] != "admin" and user_data["expires"] < datetime.now())):
-        await update.message.reply_text(
-            "❌ You need a valid subscription or admin access to use this command.\n"
-            "Contact the owner for a redeem code."
-        )
-        return
+# Send word for current level
+def send_word(update, context):
+    game_data = game_data_collection.find_one({"user_id": update.message.from_user.id})
+    level = game_data["level"]
+    word_length = level + 2  # Adjust word length based on level
+    word = generate_word(word_length)
+    context.bot.send_message(chat_id=update.message.from_user.id, text=f"Level {level}: Write a sentence using the word: {word}")
 
-    if len(context.args) != 1 or not context.args[0].isdigit():
-        await update.message.reply_text("❌ Usage: /adding <NUMBER_OF_MEMBERS> (Up to 50 members only)")
-        return
+# Generate random word based on length
+def generate_word(length):
+    word_list = ["apple", "banana", "cherry", "orange", "grape", "melon", "kiwi", "pear"]
+    return random.choice([w for w in word_list if len(w) == length])
 
-    number_of_members = int(context.args[0])
-
-    if number_of_members > DAILY_ADD_LIMIT:
-        await update.message.reply_text(f"❌ You can only add up to {DAILY_ADD_LIMIT} members per day.")
-        return
-
-    # Fake member adding logic (Generate fake member IDs)
-    fake_members = [random.randint(1000000000, 9999999999) for _ in range(number_of_members)]
+# Process user response
+def handle_message(update, context):
+    user_id = update.message.from_user.id
+    game_data = game_data_collection.find_one({"user_id": user_id})
     
-    # You can customize the logic here to interact with the group
-    await update.message.reply_text(
-        f"🔄 Adding {number_of_members} fake members to the group...\n"
-        "(Note: These are not real members, only simulated for the group)"
-    )
+    if game_data and user_id == game_data["turn"]:
+        process_turn(update, context)
+    else:
+        update.message.reply_text("It's not your turn yet.")
 
-    # Here you can add the fake member IDs to your group or handle it as needed.
-    # This is where the "fake" addition happens, and no real group members are added.
+# Process each turn
+def process_turn(update, context):
+    user_id = update.message.from_user.id
+    game_data = game_data_collection.find_one({"user_id": user_id})
+    sentence = update.message.text  # Get user input (sentence)
+    
+    if validate_sentence(sentence):
+        game_data["score"] += 20  # Increase score
+        game_data["level"] += 1  # Increase level
+        game_data["turn"] = game_data["opponent_id"]  # Switch turn to the opponent
+        game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
+        update.message.reply_text(f"Correct! Your score: {game_data['score']}")
+    else:
+        game_data["lives"] -= 1
+        if game_data["lives"] > 0:
+            game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
+            update.message.reply_text(f"Wrong! You have {game_data['lives']} lives left.")
+        else:
+            game_data["turn"] = None  # Game over for the user
+            game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
+            update.message.reply_text("Game Over! You lost all lives.")
+            send_game_over_message(update, context)
+    
+    send_word(update, context)
 
-# Notify users of Expiry
-async def check_expiries(context: CallbackContext):
-    users = subscriptions_col.find({"expires": {"$ne": None}})
-    for user in users:
-        if user["expires"] < datetime.now():
-            # Notify user if their plan has expired
-            try:
-                await context.bot.send_message(user["user_id"], "❌ Your subscription has expired. Please contact the owner to renew.")
-                subscriptions_col.update_one({"user_id": user["user_id"]}, {"$set": {"plan": "expired", "expires": None}})
-            except Exception as e:
-                print(f"Error notifying user {user['user_id']}: {e}")
+# Validate the sentence (checks if all words are in the nltk words corpus)
+def validate_sentence(sentence):
+    words_in_sentence = sentence.split()
+    # Check if each word in the sentence exists in the NLTK words corpus
+    for word in words_in_sentence:
+        if word.lower() not in words.words():
+            return False
+    return True
 
-# User List (Owner Only)
-async def user_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID:
-        await update.message.reply_text("❌ Only the owner can view the user list.")
-        return
+# Send game over message to both players
+def send_game_over_message(update, context):
+    user_id = update.message.from_user.id
+    opponent = game_data_collection.find_one({"user_id": user_id})["opponent_id"]
+    context.bot.send_message(chat_id=user_id, text="Game Over! You lost.")
+    context.bot.send_message(chat_id=opponent, text="You won! The other player lost.")
 
-    users = subscriptions_col.find()
-    response = "👥 **User List:**\n\n"
-    for user in users:
-        plan = user.get("plan", "N/A").capitalize()
-        expires = user.get("expires", "Permanent")
-        if isinstance(expires, datetime):
-            expires = expires.strftime('%Y-%m-%d')
-        response += f"- `{user['user_id']}`: {plan} (Expires: {expires})\n"
+# Leaderboard command
+def rank(update, context):
+    leaderboard = leaderboard_collection.find().sort("score", -1).limit(10)  # Get top 10 players by score
+    if leaderboard:
+        top_player = leaderboard[0]
+        name = top_player["name"]
+        score = top_player["score"]
+        img = generate_leaderboard_image(name, score)
+        photo = telegram.InputFile(img, filename="leaderboard.png")
+        
+        update.message.reply_photo(photo=photo, caption=f"Top Player: {name}\nScore: {score}", reply_markup=close_button())
+    else:
+        update.message.reply_text("No leaderboard data available yet.")
 
-    await update.message.reply_text(response, parse_mode="Markdown")
+# Generate the leaderboard image using a template image
+def generate_leaderboard_image(name, score):
+    template_image_path = "assets/leaderboard_template.png"
+    img = Image.open(template_image_path)
+    d = ImageDraw.Draw(img)
+    font = ImageFont.load_default()
+    
+    d.text((10, 100), f"Top Player: {name}", font=font, fill=(255, 255, 255))
+    d.text((10, 150), f"Score: {score}", font=font, fill=(255, 255, 255))
 
-# User Reset (Owner Only)
-async def user_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID or len(context.args) != 1:
-        await update.message.reply_text("❌ Usage: /userreset <USER_ID>")
-        return
+    img_byte_arr = io.BytesIO()
+    img.save(img_byte_arr, format='PNG')
+    img_byte_arr.seek(0)
+    
+    return img_byte_arr
 
-    user_id = int(context.args[0])
-    subscriptions_col.delete_one({"user_id": user_id})
-    try:
-        await update.message.reply_text(f"✅ User {user_id}'s plan has been deactivated.")
-        await context.bot.send_message(user_id, "❌ Your plan has been deactivated by the owner.")
-    except Exception as e:
-        print(f"Error notifying user {user_id}: {e}")
+# Close button for leaderboard
+def close_button():
+    return telegram.InlineKeyboardMarkup([
+        [telegram.InlineKeyboardButton("Close", callback_data='close')]
+    ])
 
-# Data Reset (Owner Only)
-async def data_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID:
-        await update.message.reply_text("❌ Only the owner can reset data.")
-        return
+# Handle close button action
+def button(update, context):
+    query = update.callback_query
+    query.answer()
+    query.edit_message_text("Leaderboard closed.")
 
-    subscriptions_col.delete_many({})
-    await update.message.reply_text("✅ All user data has been reset.")
+# Main entry point
+def main():
+    updater = Updater(TOKEN, use_context=True)
+    dispatcher = updater.dispatcher
 
-# Main Function
-if __name__ == "__main__":
-    app = ApplicationBuilder().token("7908847221:AAFo2YqgQ4jYG_Glbp96sINg79zF8T6EWoo").build()
+    dispatcher.add_handler(CommandHandler("start", start))
+    dispatcher.add_handler(CommandHandler("game", game))
+    dispatcher.add_handler(CommandHandler("rank", rank))
+    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    dispatcher.add_handler(CallbackQueryHandler(button))
 
-    job_queue = app.job_queue
-    job_queue.run_repeating(check_expiries, interval=86400, first=10)  # Check for expiries daily
+    updater.start_polling()
+    updater.idle()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("redeem", redeem))
-    app.add_handler(CommandHandler("adding", adding))
-    app.add_handler(CommandHandler("list", user_list))
-    app.add_handler(CommandHandler("userreset", user_reset))
-    app.add_handler(CommandHandler("datarst", data_reset))
-
-    print("Bot is running...")
-    app.run_polling()
+if __name__ == '__main__':
+    main()
