@@ -33,6 +33,48 @@ OWNER_ID = "7877197608"
 # Start the bot
 waiting_queue = []  # Queue to hold users who are waiting for an opponent
 
+# Word list for each letter A-Z
+word_list_by_letter = {
+    'A': ["apple", "ant", "arrow", "axe", "art", "angel"],
+    'B': ["banana", "ball", "bat", "boat", "bottle", "bird"],
+    'C': ["cat", "car", "circle", "cloud", "climb", "cup"],
+    'D': ["dog", "drum", "duck", "door", "dance", "dove"],
+    'E': ["elephant", "ear", "egg", "eagle", "engine"],
+    'F': ["frog", "fish", "flag", "flower", "fan"],
+    'G': ["grape", "goose", "garden", "glove", "guitar"],
+    'H': ["house", "hat", "hill", "hand", "helicopter"],
+    'I': ["ice", "island", "insect", "incredible"],
+    'J': ["jack", "jungle", "jacket", "juice"],
+    'K': ["kite", "kangaroo", "key", "king", "keyboard"],
+    'L': ["lion", "lake", "lamp", "lollipop", "leaf"],
+    'M': ["monkey", "mountain", "moon", "mirror", "music"],
+    'N': ["necklace", "nose", "night", "nail", "notebook"],
+    'O': ["orange", "octopus", "ocean", "onion", "owl"],
+    'P': ["piano", "pencil", "parrot", "plane", "paper"],
+    'Q': ["queen", "question", "quilt", "quicksand"],
+    'R': ["rabbit", "rose", "rainbow", "rocket", "radio"],
+    'S': ["snake", "sun", "ship", "star", "shovel"],
+    'T': ["tree", "tiger", "train", "table", "telescope"],
+    'U': ["umbrella", "unicorn", "under", "up", "universe"],
+    'V': ["vampire", "vulture", "vase", "vacuum", "violin"],
+    'W': ["window", "water", "wolf", "wall", "whale"],
+    'X': ["xylophone", "xenon", "xmas", "x-ray"],
+    'Y': ["yellow", "yoga", "yacht", "yak", "yarn"],
+    'Z': ["zebra", "zoo", "zero", "zip", "zone"]
+}
+
+# Function to generate a random word based on a random letter (A-Z)
+def generate_random_word():
+    # Randomly select a letter from A to Z
+    random_letter = random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
+
+    # Fetch the list of words for the selected letter
+    word_list = word_list_by_letter.get(random_letter, ["default_word"])  # Default if no words found for that letter
+    
+    # Select a random word from the list for that letter
+    return random.choice(word_list)
+
+# Function to start the bot
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.message.from_user
     await update.message.reply_text(f"Hello {user.first_name}, welcome to the Word Game! Use /game to start playing.")
@@ -83,14 +125,20 @@ async def game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def send_word(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     game_data = game_data_collection.find_one({"user_id": update.message.from_user.id})
     level = game_data["level"]
-    word_length = level + 2  # Adjust word length based on level
-    word = generate_word(word_length)
+
+    # Generate a random word (A-Z) for each level
+    word = generate_random_word()  # Get a random word for the current level
+
     await context.bot.send_message(chat_id=update.message.from_user.id, text=f"Level {level}: Write a sentence using the word: {word}")
 
-# Generate random word based on length
-def generate_word(length):
-    word_list = ["apple", "banana", "cherry", "orange", "grape", "melon", "kiwi", "pear"]
-    return random.choice([w for w in word_list if len(w) == length])
+# Validate the sentence (checks if all words are in the nltk words corpus)
+def validate_sentence(sentence):
+    words_in_sentence = sentence.split()
+    # Check if each word in the sentence exists in the NLTK words corpus
+    for word in words_in_sentence:
+        if word.lower() not in words.words():
+            return False
+    return True
 
 # Process user response
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -122,72 +170,20 @@ async def process_turn(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         else:
             game_data["turn"] = None  # Game over for the user
             game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
-            await update.message.reply_text("Game Over! You lost all lives.")
-            await send_game_over_message(update, context)
-    
-    await send_word(update, context)
+            await update.message.reply_text(f"Game Over! You lost all your lives.")
+            # Reset the game for the user
+            game_data_collection.delete_one({"user_id": user_id})
 
-# Validate the sentence (checks if all words are in the nltk words corpus)
-def validate_sentence(sentence):
-    words_in_sentence = sentence.split()
-    # Check if each word in the sentence exists in the NLTK words corpus
-    for word in words_in_sentence:
-        if word.lower() not in words.words():
-            return False
-    return True
-
-# Send game over message to both players
-async def send_game_over_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.message.from_user.id
-    opponent = game_data_collection.find_one({"user_id": user_id})["opponent_id"]
-    await context.bot.send_message(chat_id=user_id, text="Game Over! You lost.")
-    await context.bot.send_message(chat_id=opponent, text="You won! The other player lost.")
-
-# Leaderboard command
-async def rank(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    leaderboard = leaderboard_collection.find().sort("score", -1).limit(10)  # Get top 10 players by score
-    if leaderboard:
-        top_player = leaderboard[0]
-        name = top_player["name"]
-        score = top_player["score"]
-        img = generate_leaderboard_image(name, score)
-        photo = telegram.InputFile(img, filename="leaderboard.png")
-        
-        await update.message.reply_photo(photo=photo, caption=f"Top Player: {name}\nScore: {score}", reply_markup=close_button())
-    else:
-        await update.message.reply_text("No leaderboard data available yet.")
-
-# Generate the leaderboard image using a template image
-def generate_leaderboard_image(name, score):
-    template_image_path = "assets/sanki.png"
-    img = Image.open(template_image_path)
-    d = ImageDraw.Draw(img)
-    font = ImageFont.load_default()
-    
-    d.text((10, 100), f"Top Player: {name}", font=font, fill=(255, 255, 255))
-    d.text((10, 150), f"Score: {score}", font=font, fill=(255, 255, 255))
-
-    img_byte_arr = io.BytesIO()
-    img.save(img_byte_arr, format='PNG')
-    img_byte_arr.seek(0)
-    
-    return img_byte_arr
-
-# Close button for leaderboard
-def close_button():
-    return telegram.ReplyKeyboardRemove()
-
-# Main function to run the bot
+# Main function to handle bot
 def main() -> None:
     application = Application.builder().token(TOKEN).build()
 
-    # Add handlers
+    # Handlers for bot commands
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("game", game))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    application.add_handler(CommandHandler("rank", rank))
+    application.add_handler(MessageHandler(filters.TEXT, handle_message))
 
     application.run_polling()
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()
