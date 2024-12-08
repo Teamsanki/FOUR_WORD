@@ -1,22 +1,33 @@
 import random
 import string
 from datetime import datetime, timedelta
-from telegram import Update, InlineKeyboardMarkup, InlineKeyboardButton
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, MessageHandler, filters
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from pymongo import MongoClient
+
+# MongoDB Setup
+MONGO_URL = "mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+client = MongoClient(MONGO_URL)
+db = client["member_adding_bot"]
+subscriptions_col = db["subscriptions"]
+redeem_codes_col = db["redeem_codes"]
 
 # Bot Variables
-OWNER_ID = 7877197608  # Replace with the owner's Telegram ID
-active_redeem_codes = {}
-user_subscriptions = {}
+OWNER_ID = 7877197608
+DAILY_ADD_LIMIT = 50
+
+# Helper: Generate Redeem Code
+def generate_code():
+    return "-".join(["".join(random.choices(string.ascii_uppercase + string.digits, k=4)) for _ in range(3)])
 
 # Start Command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     welcome_msg = (
         "🤖 Welcome to the Member Adding Bot!\n\n"
         "Use this bot to transfer members from one group to another.\n\n"
-        "To get started:\n"
-        "- Add me to a group.\n"
-        "- Use `/adding` command after getting a subscription.\n\n"
+        "Commands:\n"
+        "- `/adding` to add members (Subscription required).\n"
+        "- `/redeem` to activate a plan.\n\n"
         "Contact the owner for redeem codes!"
     )
     await update.message.reply_text(welcome_msg)
@@ -27,11 +38,27 @@ async def generate_redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("❌ Only the owner can generate redeem codes.")
         return
 
-    code = "-".join(
-        ["".join(random.choices(string.ascii_uppercase + string.digits, k=4)) for _ in range(3)]
-    )
-    active_redeem_codes[code] = False  # False means the code is unused
-    await update.message.reply_text(f"✅ Redeem Code Generated: `{code}`", parse_mode="Markdown")
+    if len(context.args) != 1 or context.args[0].lower() not in ["bronz", "silver", "golden", "admin"]:
+        await update.message.reply_text("❌ Usage: /genrdm <bronz|silver|golden|admin>")
+        return
+
+    plan = context.args[0].lower()
+    code = generate_code()
+    validity = {
+        "bronz": timedelta(weeks=1),
+        "silver": timedelta(days=30),
+        "golden": timedelta(days=60),
+        "admin": None  # Admin codes are permanent
+    }.get(plan)
+
+    redeem_codes_col.insert_one({
+        "code": code,
+        "plan": plan,
+        "validity": validity,
+        "used": False
+    })
+
+    await update.message.reply_text(f"✅ {plan.capitalize()} Redeem Code Generated: `{code}`", parse_mode="Markdown")
 
 # Redeem Command
 async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -41,31 +68,35 @@ async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     code = context.args[0]
     user_id = update.effective_user.id
+    code_data = redeem_codes_col.find_one({"code": code})
 
-    if code not in active_redeem_codes:
+    if not code_data:
         await update.message.reply_text("❌ Invalid Redeem Code!")
         return
 
-    if active_redeem_codes[code]:
+    if code_data["used"]:
         await update.message.reply_text("❌ This Redeem Code has already been used!")
         return
 
     # Activate subscription
-    active_redeem_codes[code] = True
-    user_subscriptions[user_id] = datetime.now() + timedelta(days=30)
-    await update.message.reply_text("🎉 Your subscription is now active for 1 month!\nUse /adding command in a group.")
+    redeem_codes_col.update_one({"code": code}, {"$set": {"used": True}})
+
+    if code_data["plan"] == "admin":
+        subscriptions_col.update_one({"user_id": user_id}, {"$set": {"plan": "admin", "expires": None}}, upsert=True)
+        await update.message.reply_text("🎉 You are now an admin! Enjoy permanent access.")
+    else:
+        expiry_date = datetime.now() + code_data["validity"]
+        subscriptions_col.update_one({"user_id": user_id}, {"$set": {"plan": code_data["plan"], "expires": expiry_date}}, upsert=True)
+        await update.message.reply_text(f"🎉 Your {code_data['plan'].capitalize()} subscription is now active till {expiry_date.strftime('%Y-%m-%d')}.")
 
 # Adding Command
 async def adding(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    user_data = subscriptions_col.find_one({"user_id": user_id})
 
-    if update.effective_chat.type == "private":
-        await update.message.reply_text("❌ You can only use this command in groups.\nAdd me to a group first!")
-        return
-
-    if user_id not in user_subscriptions or user_subscriptions[user_id] < datetime.now():
+    if user_id != OWNER_ID and (not user_data or (user_data["plan"] != "admin" and user_data["expires"] < datetime.now())):
         await update.message.reply_text(
-            "❌ You need a valid subscription to use this command.\n"
+            "❌ You need a valid subscription or admin access to use this command.\n"
             "Contact the owner for a redeem code."
         )
         return
@@ -75,7 +106,46 @@ async def adding(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     source_group, target_group = context.args
-    await update.message.reply_text(f"🔄 Transferring members from {source_group} to {target_group}...\n(Ensure members are not hidden!)")
+    await update.message.reply_text(
+        f"🔄 Transferring members from {source_group} to {target_group}...\n"
+        "(Ensure members are not hidden and you haven't reached the daily limit!)"
+    )
+
+# User List (Owner Only)
+async def user_list(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID:
+        await update.message.reply_text("❌ Only the owner can view the user list.")
+        return
+
+    users = subscriptions_col.find()
+    response = "👥 **User List:**\n\n"
+    for user in users:
+        plan = user.get("plan", "N/A").capitalize()
+        expires = user.get("expires", "Permanent")
+        if isinstance(expires, datetime):
+            expires = expires.strftime('%Y-%m-%d')
+        response += f"- `{user['user_id']}`: {plan} (Expires: {expires})\n"
+
+    await update.message.reply_text(response, parse_mode="Markdown")
+
+# User Reset (Owner Only)
+async def user_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID or len(context.args) != 1:
+        await update.message.reply_text("❌ Usage: /userreset <USER_ID>")
+        return
+
+    user_id = int(context.args[0])
+    subscriptions_col.delete_one({"user_id": user_id})
+    await update.message.reply_text(f"✅ User {user_id}'s plan has been deactivated.")
+
+# Data Reset (Owner Only)
+async def data_reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID:
+        await update.message.reply_text("❌ Only the owner can reset data.")
+        return
+
+    subscriptions_col.delete_many({})
+    await update.message.reply_text("✅ All user data has been reset.")
 
 # Main Function
 if __name__ == "__main__":
@@ -85,6 +155,9 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("genrdm", generate_redeem))
     app.add_handler(CommandHandler("redeem", redeem))
     app.add_handler(CommandHandler("adding", adding))
+    app.add_handler(CommandHandler("list", user_list))
+    app.add_handler(CommandHandler("userreset", user_reset))
+    app.add_handler(CommandHandler("datarst", data_reset))
 
     print("Bot is running...")
     app.run_polling()
