@@ -30,6 +30,9 @@ logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Initialize waiting queue for game
+waiting_queue = []  # List to store users waiting for opponents
+
 # Word list for each letter A-Z
 word_list_by_letter = {
     'A': ["apple", "ant", "arrow", "axe", "art", "angel"],
@@ -169,41 +172,32 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 game_data["score"] += 1
                 game_data["level"] += 1
                 game_data["turn"] = game_data["opponent_id"]
-
-                # Save updated game data
                 game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
-
-                await update.message.reply_text(f"Correct! You scored 1 point. Moving to level {game_data['level']}.")
+                await update.message.reply_text(f"Correct! You are now at level {game_data['level']}.")
                 await send_word(update, context)
             else:
+                # Decrease lives if answer is incorrect
                 game_data["lives"] -= 1
-                if game_data["lives"] <= 0:
-                    await update.message.reply_text(f"Game Over! You lost all your lives.")
-                    game_data_collection.delete_one({"user_id": user_id})
+                game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
+                if game_data["lives"] > 0:
+                    await update.message.reply_text(f"Incorrect! You have {game_data['lives']} lives left.")
+                    await send_word(update, context)
                 else:
-                    game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
-                    await update.message.reply_text(f"Incorrect! You have {game_data['lives']} lives left. Try again.")
-        else:
-            await update.message.reply_text("It's not your turn yet.")
-
-# Rank command: Display the rank of players
-async def rank(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    leaderboard = leaderboard_collection.find().sort("score", -1)  # Sort players by score in descending order
-    rank_message = "Leaderboard:\n\n"
-    for index, player in enumerate(leaderboard):
-        rank_message += f"{index + 1}. {player['username']} - Score: {player['score']}\n"
-    await update.message.reply_text(rank_message)
+                    await update.message.reply_text("Game Over! You ran out of lives.")
+                    # Game over, delete the game data from the database
+                    game_data_collection.delete_one({"user_id": user_id})
 
 # Main function to start the bot
-def main() -> None:
+async def main() -> None:
     application = Application.builder().token(TOKEN).build()
 
+    # Register handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("game", game))
-    application.add_handler(CommandHandler("rank", rank))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    application.run_polling()
+    # Run the bot
+    await application.run_polling()
 
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    asyncio.run(main())
