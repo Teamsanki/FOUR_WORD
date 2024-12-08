@@ -1,6 +1,8 @@
 import random
 import telegram
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
+from telegram.ext import Updater, CommandHandler, MessageHandler, CallbackQueryHandler
+from telegram import Update
+from telegram.ext import filters
 from PIL import Image, ImageDraw, ImageFont
 import io
 import nltk
@@ -175,7 +177,7 @@ def main():
     dispatcher.add_handler(CommandHandler("start", start))
     dispatcher.add_handler(CommandHandler("game", game))
     dispatcher.add_handler(CommandHandler("rank", rank))
-    dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_message))
+    dispatcher.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
     dispatcher.add_handler(CallbackQueryHandler(button))
 
     updater.start_polling()
