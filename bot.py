@@ -2,7 +2,7 @@ import random
 import string
 from datetime import datetime, timedelta
 from telegram import Update, ChatMember
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackContext, JobQueue
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes, CallbackContext
 from pymongo import MongoClient
 
 # MongoDB Setup
@@ -27,39 +27,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🤖 Welcome to the Member Adding Bot!\n\n"
         "Use this bot to transfer members from one group to another.\n\n"
         "Commands:\n"
-        "- `/adding` to add members (Subscription required).\n"
+        "- `/adding <number_of_members>` to add fake members (Subscription required).\n"
         "- `/redeem` to activate a plan.\n\n"
         "Contact the owner for redeem codes!"
     )
     await update.message.reply_text(welcome_msg)
-
-# Generate Redeem Code (Owner Only)
-async def generate_redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID:
-        await update.message.reply_text("❌ Only the owner can generate redeem codes.")
-        return
-
-    if len(context.args) != 1 or context.args[0].lower() not in ["bronz", "silver", "golden", "admin"]:
-        await update.message.reply_text("❌ Usage: /genrdm <bronz|silver|golden|admin>")
-        return
-
-    plan = context.args[0].lower()
-    code = generate_code()
-    validity = {
-        "bronz": timedelta(weeks=1),
-        "silver": timedelta(days=30),
-        "golden": timedelta(days=60),
-        "admin": None  # Admin codes are permanent
-    }.get(plan)
-
-    redeem_codes_col.insert_one({
-        "code": code,
-        "plan": plan,
-        "validity": validity,
-        "used": False
-    })
-
-    await update.message.reply_text(f"✅ {plan.capitalize()} Redeem Code Generated: `{code}`", parse_mode="Markdown")
 
 # Redeem Command
 async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -90,7 +62,7 @@ async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         subscriptions_col.update_one({"user_id": user_id}, {"$set": {"plan": code_data["plan"], "expires": expiry_date}}, upsert=True)
         await update.message.reply_text(f"🎉 Your {code_data['plan'].capitalize()} subscription is now active till {expiry_date.strftime('%Y-%m-%d')}.")
 
-# Adding Command (No Admin Check)
+# Adding Command (Limit 50 Fake Members)
 async def adding(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     user_data = subscriptions_col.find_one({"user_id": user_id})
@@ -103,22 +75,27 @@ async def adding(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
-    if len(context.args) != 2:
-        await update.message.reply_text("❌ Usage: /adding <SOURCE_GROUP_LINK> <TARGET_GROUP_LINK>")
+    if len(context.args) != 1 or not context.args[0].isdigit():
+        await update.message.reply_text("❌ Usage: /adding <NUMBER_OF_MEMBERS> (Up to 50 members only)")
         return
 
-    source_group, target_group = context.args
+    number_of_members = int(context.args[0])
 
-    # Even if the bot is not an admin in the source group, it will attempt to add members to the target group.
-    # However, ensure that the bot is not added to the source group if it's unnecessary.
+    if number_of_members > DAILY_ADD_LIMIT:
+        await update.message.reply_text(f"❌ You can only add up to {DAILY_ADD_LIMIT} members per day.")
+        return
 
+    # Fake member adding logic (Generate fake member IDs)
+    fake_members = [random.randint(1000000000, 9999999999) for _ in range(number_of_members)]
+    
+    # You can customize the logic here to interact with the group
     await update.message.reply_text(
-        f"🔄 Transferring members from {source_group} to {target_group}...\n"
-        "(Ensure members are not hidden and you haven't reached the daily limit!)"
+        f"🔄 Adding {number_of_members} fake members to the group...\n"
+        "(Note: These are not real members, only simulated for the group)"
     )
 
-    # Proceed with adding members logic, even if the bot is not an admin in the source group.
-    # (The logic of adding members is not implemented here and should be customized according to your bot's purpose.)
+    # Here you can add the fake member IDs to your group or handle it as needed.
+    # This is where the "fake" addition happens, and no real group members are added.
 
 # Notify users of Expiry
 async def check_expiries(context: CallbackContext):
@@ -180,7 +157,6 @@ if __name__ == "__main__":
     job_queue.run_repeating(check_expiries, interval=86400, first=10)  # Check for expiries daily
 
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("genrdm", generate_redeem))
     app.add_handler(CommandHandler("redeem", redeem))
     app.add_handler(CommandHandler("adding", adding))
     app.add_handler(CommandHandler("list", user_list))
