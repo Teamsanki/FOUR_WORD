@@ -51,10 +51,13 @@ async def generate_redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "admin": None  # Admin codes are permanent
     }.get(plan)
 
+    # Convert timedelta to days (or None for admin)
+    validity_days = None if validity is None else validity.days
+
     redeem_codes_col.insert_one({
         "code": code,
         "plan": plan,
-        "validity": validity,
+        "validity_days": validity_days,  # Store as days
         "used": False
     })
 
@@ -85,9 +88,17 @@ async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         subscriptions_col.update_one({"user_id": user_id}, {"$set": {"plan": "admin", "expires": None}}, upsert=True)
         await update.message.reply_text("🎉 You are now an admin! Enjoy permanent access.")
     else:
-        expiry_date = datetime.now() + code_data["validity"]
+        # Calculate expiry date
+        if code_data["validity_days"] is not None:
+            expiry_date = datetime.now() + timedelta(days=code_data["validity_days"])
+        else:
+            expiry_date = None  # Admin has no expiry date
+
         subscriptions_col.update_one({"user_id": user_id}, {"$set": {"plan": code_data["plan"], "expires": expiry_date}}, upsert=True)
-        await update.message.reply_text(f"🎉 Your {code_data['plan'].capitalize()} subscription is now active till {expiry_date.strftime('%Y-%m-%d')}.")
+        if expiry_date:
+            await update.message.reply_text(f"🎉 Your {code_data['plan'].capitalize()} subscription is now active till {expiry_date.strftime('%Y-%m-%d')}.")
+        else:
+            await update.message.reply_text(f"🎉 You are now an admin with permanent access.")
 
 # Adding Command
 async def adding(update: Update, context: ContextTypes.DEFAULT_TYPE):
