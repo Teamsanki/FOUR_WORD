@@ -143,7 +143,7 @@ def rank(update, context):
 
 # Generate the leaderboard image using a template image
 def generate_leaderboard_image(name, score):
-    template_image_path = "assets/leaderboard_template.png"
+    template_image_path = "assets/sanki.png"
     img = Image.open(template_image_path)
     d = ImageDraw.Draw(img)
     font = ImageFont.load_default()
