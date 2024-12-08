@@ -5,25 +5,32 @@ from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQu
 from telegram.ext import ContextTypes
 from pymongo import MongoClient
 import asyncio
-import time
+from PIL import Image, ImageDraw, ImageFont
+import io
+import nltk
+from nltk.corpus import words
 
-# Set up logging
+# Ensure NLTK words corpus is downloaded
+nltk.download('words')
+
+# MongoDB connection string (replace with your actual MongoDB URI)
+MONGO_URL = "mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+client = MongoClient(MONGO_URL)
+db = client["game_database"]  # Database name
+leaderboard_collection = db["leaderboard"]  # Collection for leaderboard data
+game_data_collection = db["game_data"]  # Collection for ongoing game data
+
+# Token and owner ID (replace with your actual bot token and owner ID)
+TOKEN = "7908847221:AAFo2YqgQ4jYG_Glbp96sINg79zF8T6EWoo"
+OWNER_ID = "7877197608"
+
+# Initialize the bot and set up logging
 import logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
                     level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# MongoDB connection string (replace with your actual MongoDB URI)
-MONGO_URL = "mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-client = MongoClient(MONGO_URL)
-db = client["new_game_database"]  # New database name for reset
-leaderboard_collection = db["leaderboard"]  # Collection for leaderboard data
-game_data_collection = db["game_data"]  # Collection for ongoing game data
-
-# Bot Token (Replace with your bot's token)
-TOKEN = "7908847221:AAFo2YqgQ4jYG_Glbp96sINg79zF8T6EWoo"
-
-# Set of letters with corresponding words for the random word generation
+# Word list for each letter A-Z
 word_list_by_letter = {
     'A': ["apple", "ant", "arrow", "axe", "art", "angel"],
     'B': ["banana", "ball", "bat", "boat", "bottle", "bird"],
@@ -53,21 +60,28 @@ word_list_by_letter = {
     'Z': ["zebra", "zoo", "zero", "zip", "zone"]
 }
 
-# Function to generate a random word for a player based on a random letter (A-Z)
+# Reset the game data and leaderboard
+async def reset_game_data() -> None:
+    game_data_collection.drop()  # Drop all game data
+    leaderboard_collection.drop()  # Drop leaderboard data
+
+# Function to generate a random word based on a random letter (A-Z)
 def generate_random_word():
     random_letter = random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
-    word_list = word_list_by_letter.get(random_letter, ["default_word"])  # Default if no words found for that letter
+    word_list = word_list_by_letter.get(random_letter, ["default_word"])
     return random.choice(word_list)
 
-# Function to start the game
+# Start the bot
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.message.from_user
     await update.message.reply_text(f"Hello {user.first_name}, welcome to the Word Game! Use /game to start playing.")
 
-# Function to start a game between two users
+# Game command: User initiates the game
 async def game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.message.from_user
-    waiting_queue = []
+
+    # Reset the game data and leaderboard
+    await reset_game_data()
 
     # Check if the user is already in a game
     existing_game = game_data_collection.find_one({"user_id": user.id})
@@ -75,18 +89,22 @@ async def game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         await update.message.reply_text("You are already in a game!")
         return
 
-    # Add user to the waiting queue
+    # Add user to waiting queue
     waiting_queue.append(user)
+
     if len(waiting_queue) > 1:
-        opponent = waiting_queue.pop(0)  # Get the opponent
-        # Create a new game between user and opponent
+        # Find the opponent (the second player in the queue)
+        opponent = waiting_queue.pop(0)  # The first player in the queue is matched with the second
+        # Start the game between the two users
         game_data = {
             "user_id": user.id,
             "opponent_id": opponent.id,
             "level": 1,
             "lives": 3,
             "score": 0,
-            "turn": user.id  # Set the first turn to the user
+            "turn": user.id,
+            "opponent_name": opponent.first_name,
+            "start_time": asyncio.get_event_loop().time()
         }
 
         # Insert game data into the database
@@ -98,80 +116,94 @@ async def game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
         # Wait 10 seconds before starting the game
         await asyncio.sleep(10)
-
-        # Start the game by sending the first word
+        
+        # Send the first word to both players
         await send_word(update, context)
         await context.bot.send_message(chat_id=opponent.id, text=f"Level 1: Write a sentence using the word.")
-
     else:
         await update.message.reply_text("No opponent available. Please wait for someone to join.")
 
-# Function to send the word for the current level
+# Send word for current level
 async def send_word(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     game_data = game_data_collection.find_one({"user_id": update.message.from_user.id})
     level = game_data["level"]
 
-    # Generate a random word (A-Z) for the current level
+    # Generate a random word (A-Z) for each level
     word = generate_random_word()  # Get a random word for the current level
 
-    # Send the word and level to the player
-    await context.bot.send_message(chat_id=update.message.from_user.id, text=f"Level {level}: Write a sentence using the word: {word}")
-    # Send the time limit for the current level
-    time_limit = 20  # Set a time limit (in seconds) for the current level
-    await context.bot.send_message(chat_id=update.message.from_user.id, text=f"You have {time_limit} seconds to complete this level.")
+    # Get the time for the current level
+    time_for_level = 20  # Default time for each level (20 seconds)
+    
+    await context.bot.send_message(chat_id=update.message.from_user.id, text=f"Level {level}: You have {time_for_level} seconds to write a sentence using the word: {word}")
 
-# Function to handle the user input for sentences
+    # Timer countdown
+    await countdown_timer(update, context, time_for_level)
+
+# Timer countdown for the level
+async def countdown_timer(update: Update, context: ContextTypes.DEFAULT_TYPE, seconds: int) -> None:
+    while seconds > 0:
+        await asyncio.sleep(1)
+        seconds -= 1
+        await context.bot.send_message(chat_id=update.message.from_user.id, text=f"{seconds} seconds remaining.")
+        await context.bot.send_message(chat_id=game_data_collection.find_one({"user_id": update.message.from_user.id})["opponent_id"], text=f"{seconds} seconds remaining.")
+    await check_answer(update, context)
+
+# Validate the sentence (checks if all words are in the nltk words corpus)
+def validate_sentence(sentence):
+    words_in_sentence = sentence.split()
+    # Check if each word in the sentence exists in the NLTK words corpus
+    for word in words_in_sentence:
+        if word.lower() not in words.words():
+            return False
+    return True
+
+# Process user response
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user_id = update.message.from_user.id
     game_data = game_data_collection.find_one({"user_id": user_id})
     
-    if game_data and user_id == game_data["turn"]:
-        await process_turn(update, context)
-    else:
-        await update.message.reply_text("It's not your turn yet.")
+    if game_data:
+        if game_data["turn"] == user_id:
+            if validate_sentence(update.message.text):
+                # Update game status
+                game_data["score"] += 1
+                game_data["level"] += 1
+                game_data["turn"] = game_data["opponent_id"]
 
-# Function to process each turn
-async def process_turn(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user_id = update.message.from_user.id
-    game_data = game_data_collection.find_one({"user_id": user_id})
-    sentence = update.message.text  # Get user input (sentence)
-    
-    if validate_sentence(sentence):
-        game_data["score"] += 20  # Increase score
-        game_data["level"] += 1  # Increase level
-        game_data["turn"] = game_data["opponent_id"]  # Switch turn to the opponent
-        game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
-        await update.message.reply_text(f"Correct! Your score: {game_data['score']}")
-    else:
-        game_data["lives"] -= 1
-        if game_data["lives"] > 0:
-            game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
-            await update.message.reply_text(f"Wrong! You have {game_data['lives']} lives left.")
+                # Save updated game data
+                game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
+
+                await update.message.reply_text(f"Correct! You scored 1 point. Moving to level {game_data['level']}.")
+                await send_word(update, context)
+            else:
+                game_data["lives"] -= 1
+                if game_data["lives"] <= 0:
+                    await update.message.reply_text(f"Game Over! You lost all your lives.")
+                    game_data_collection.delete_one({"user_id": user_id})
+                else:
+                    game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
+                    await update.message.reply_text(f"Incorrect! You have {game_data['lives']} lives left. Try again.")
         else:
-            game_data["turn"] = None  # Game over for the user
-            game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
-            await update.message.reply_text("Game Over! You lost all your lives.")
-            await context.bot.send_message(chat_id=game_data["opponent_id"], text="Game Over! Your opponent lost all their lives.")
-            game_data_collection.delete_one({"user_id": user_id})
+            await update.message.reply_text("It's not your turn yet.")
 
-# Function to validate if the sentence entered by the user is valid
-def validate_sentence(sentence: str) -> bool:
-    # You can implement a better validation here, such as using a dictionary or NLP model
-    return sentence != ""
+# Rank command: Display the rank of players
+async def rank(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    leaderboard = leaderboard_collection.find().sort("score", -1)  # Sort players by score in descending order
+    rank_message = "Leaderboard:\n\n"
+    for index, player in enumerate(leaderboard):
+        rank_message += f"{index + 1}. {player['username']} - Score: {player['score']}\n"
+    await update.message.reply_text(rank_message)
 
 # Main function to start the bot
 def main() -> None:
     application = Application.builder().token(TOKEN).build()
 
-    # Command Handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("game", game))
+    application.add_handler(CommandHandler("rank", rank))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-    # Message Handler
-    application.add_handler(MessageHandler(filters.TEXT, handle_message))
-
-    # Start polling for the bot
     application.run_polling()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
