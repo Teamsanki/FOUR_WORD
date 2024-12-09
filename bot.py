@@ -31,15 +31,15 @@ def check_subscription_expiry(context: CallbackContext):
             )
 
 # /aimg command handler
-def ai_image(update: Update, context: CallbackContext):
+async def ai_image(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     if not is_subscribed(user_id):
-        update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
+        await update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
         return
 
     user_prompt = ' '.join(context.args)
     if not user_prompt:
-        update.message.reply_text("Please provide a prompt for the AI image generation.")
+        await update.message.reply_text("Please provide a prompt for the AI image generation.")
         return
 
     try:
@@ -50,22 +50,22 @@ def ai_image(update: Update, context: CallbackContext):
         response = requests.post(url, headers=headers, data=data).json()
         image_url = response.get("output_url", None)
         if image_url:
-            update.message.reply_photo(photo=image_url, caption="Here is your AI-generated image!")
+            await update.message.reply_photo(photo=image_url, caption="Here is your AI-generated image!")
         else:
-            update.message.reply_text("Failed to generate image.")
+            await update.message.reply_text("Failed to generate image.")
     except Exception as e:
-        update.message.reply_text(f"Error generating image: {e}")
+        await update.message.reply_text(f"Error generating image: {e}")
 
 # /moviesearch command handler
-def movie_search(update: Update, context: CallbackContext):
+async def movie_search(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     if not is_subscribed(user_id):
-        update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
+        await update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
         return
 
     movie_name = ' '.join(context.args)
     if not movie_name:
-        update.message.reply_text("Please provide the name of the movie you want to search for.")
+        await update.message.reply_text("Please provide the name of the movie you want to search for.")
         return
 
     url = f"https://api.themoviedb.org/3/search/movie?api_key={TMDB_API_KEY}&query={movie_name}"
@@ -80,43 +80,43 @@ def movie_search(update: Update, context: CallbackContext):
 
         message = f"🎬 *{title}*\n\n{overview}"
         if image_url:
-            update.message.reply_photo(photo=image_url, caption=message, parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_photo(photo=image_url, caption=message, parse_mode=ParseMode.MARKDOWN)
         else:
-            update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
+            await update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
     else:
-        update.message.reply_text("No results found for your movie search.")
+        await update.message.reply_text("No results found for your movie search.")
 
 # /genredeem command handler (Owner only)
-def genredeem(update: Update, context: CallbackContext):
+async def genredeem(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     if user_id != OWNER_ID:
-        update.message.reply_text("You are not authorized to use this command.")
+        await update.message.reply_text("You are not authorized to use this command.")
         return
 
     if len(context.args) != 1 or context.args[0] not in ["bronze", "silver", "gold"]:
-        update.message.reply_text("Usage: /genredeem <plan>\nPlans: bronze (1 week), silver (3 weeks), gold (1 month)")
+        await update.message.reply_text("Usage: /genredeem <plan>\nPlans: bronze (1 week), silver (3 weeks), gold (1 month)")
         return
 
     plan = context.args[0]
     code = '-'.join([''.join(random.choices(string.ascii_uppercase + string.digits, k=4)) for _ in range(3)])
     redeem_codes[code] = {"plan": plan, "used": False}
 
-    update.message.reply_text(f"Generated Redeem Code for {plan.capitalize()} Plan:\n`{code}`", parse_mode=ParseMode.MARKDOWN)
+    await update.message.reply_text(f"Generated Redeem Code for {plan.capitalize()} Plan:\n`{code}`", parse_mode=ParseMode.MARKDOWN)
 
 # /redeem command handler
-def redeem(update: Update, context: CallbackContext):
+async def redeem(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     if len(context.args) != 1:
-        update.message.reply_text("Usage: /redeem <code>")
+        await update.message.reply_text("Usage: /redeem <code>")
         return
 
     code = context.args[0]
     if code not in redeem_codes:
-        update.message.reply_text("Invalid redeem code.")
+        await update.message.reply_text("Invalid redeem code.")
         return
 
     if redeem_codes[code]["used"]:
-        update.message.reply_text("This redeem code has already been used.")
+        await update.message.reply_text("This redeem code has already been used.")
         return
 
     # Activate subscription based on plan
@@ -128,18 +128,18 @@ def redeem(update: Update, context: CallbackContext):
     expiry_date = datetime.date.today() + datetime.timedelta(weeks={"bronze": 1, "silver": 3, "gold": 4}[plan])
     subscription_expiry[user_id] = expiry_date
 
-    update.message.reply_text(f"Subscription activated! Enjoy your {duration} of premium access. Your subscription expires on {expiry_date}. User ID: {user_id}")
+    await update.message.reply_text(f"Subscription activated! Enjoy your {duration} of premium access. Your subscription expires on {expiry_date}. User ID: {user_id}")
 
 # /aivideo command handler
-def ai_video(update: Update, context: CallbackContext):
+async def ai_video(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     if not is_subscribed(user_id):
-        update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
+        await update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
         return
 
     user_prompt = ' '.join(context.args)
     if not user_prompt:
-        update.message.reply_text("Please provide a prompt for the AI video generation.")
+        await update.message.reply_text("Please provide a prompt for the AI video generation.")
         return
 
     try:
@@ -150,11 +150,11 @@ def ai_video(update: Update, context: CallbackContext):
         response = requests.post(url, headers=headers, data=data).json()
         video_url = response.get("output_url", None)
         if video_url:
-            update.message.reply_video(video=video_url, caption="Here is your AI-generated video!")
+            await update.message.reply_video(video=video_url, caption="Here is your AI-generated video!")
         else:
-            update.message.reply_text("Failed to generate video.")
+            await update.message.reply_text("Failed to generate video.")
     except Exception as e:
-        update.message.reply_text(f"Error generating video: {e}")
+        await update.message.reply_text(f"Error generating video: {e}")
 
 # Main function to start the bot
 def main():
