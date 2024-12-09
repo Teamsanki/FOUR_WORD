@@ -2,8 +2,7 @@ import requests
 import random
 import string
 import datetime
-from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandle
-from telegram.ext.filters import Filters  # Correct way to import Filters in the new version
+from telegram.ext import Updater, CommandHandler, CallbackContext  # Removed Filters
 from telegram.constants import ParseMode
 
 # API Keys
@@ -31,7 +30,7 @@ def check_subscription_expiry(context: CallbackContext):
             )
 
 # /aimg command handler
-def ai_image(update: Update, context: CallbackContext):
+def ai_image(update, context: CallbackContext):
     user_id = update.message.from_user.id
     if not is_subscribed(user_id):
         update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
@@ -57,7 +56,7 @@ def ai_image(update: Update, context: CallbackContext):
         update.message.reply_text(f"Error generating image: {e}")
 
 # /moviesearch command handler
-def movie_search(update: Update, context: CallbackContext):
+def movie_search(update, context: CallbackContext):
     user_id = update.message.from_user.id
     if not is_subscribed(user_id):
         update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
@@ -87,7 +86,7 @@ def movie_search(update: Update, context: CallbackContext):
         update.message.reply_text("No results found for your movie search.")
 
 # /genredeem command handler (Owner only)
-def genredeem(update: Update, context: CallbackContext):
+def genredeem(update, context: CallbackContext):
     user_id = update.message.from_user.id
     if user_id != OWNER_ID:
         update.message.reply_text("You are not authorized to use this command.")
@@ -104,7 +103,7 @@ def genredeem(update: Update, context: CallbackContext):
     update.message.reply_text(f"Generated Redeem Code for {plan.capitalize()} Plan:\n`{code}`", parse_mode=ParseMode.MARKDOWN)
 
 # /redeem command handler
-def redeem(update: Update, context: CallbackContext):
+def redeem(update, context: CallbackContext):
     user_id = update.message.from_user.id
     if len(context.args) != 1:
         update.message.reply_text("Usage: /redeem <code>")
@@ -131,7 +130,7 @@ def redeem(update: Update, context: CallbackContext):
     update.message.reply_text(f"Subscription activated! Enjoy your {duration} of premium access. Your subscription expires on {expiry_date}. User ID: {user_id}")
 
 # /aivideo command handler
-def ai_video(update: Update, context: CallbackContext):
+def ai_video(update, context: CallbackContext):
     user_id = update.message.from_user.id
     if not is_subscribed(user_id):
         update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
