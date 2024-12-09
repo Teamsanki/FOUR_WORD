@@ -2,9 +2,9 @@ import requests
 import random
 import string
 import datetime
-from telegram import Update, InputMediaPhoto
-from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
-from telegram.constants import ParseMode  # Updated import for ParseMode
+from telegram import Update, InputMediaPhoto, filters
+from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler
+from telegram.constants import ParseMode
 
 # API Keys
 DEEPAI_API_KEY = "c6e15240-074c-40e0-9650-eae94c5e75a4"  # Replace with DeepAI API key
@@ -130,6 +130,32 @@ def redeem(update: Update, context: CallbackContext):
 
     update.message.reply_text(f"Subscription activated! Enjoy your {duration} of premium access. Your subscription expires on {expiry_date}. User ID: {user_id}")
 
+ # /aivideo command handler
+def ai_video(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+    if not is_subscribed(user_id):
+        update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
+        return
+
+    user_prompt = ' '.join(context.args)
+    if not user_prompt:
+        update.message.reply_text("Please provide a prompt for the AI video generation.")
+        return
+
+    try:
+        url = "https://api.deepai.org/api/text2video"  # Replace with an actual video generation API
+        headers = {"api-key": DEEPAI_API_KEY}
+        data = {"text": user_prompt}
+
+        response = requests.post(url, headers=headers, data=data).json()
+        video_url = response.get("output_url", None)
+        if video_url:
+            update.message.reply_video(video=video_url, caption="Here is your AI-generated video!")
+        else:
+            update.message.reply_text("Failed to generate video.")
+    except Exception as e:
+        update.message.reply_text(f"Error generating video: {e}")
+
 # Main function to start the bot
 def main():
     updater = Updater(BOT_TOKEN)
@@ -139,10 +165,7 @@ def main():
     dispatcher.add_handler(CommandHandler("moviesearch", movie_search))
     dispatcher.add_handler(CommandHandler("genredeem", genredeem))
     dispatcher.add_handler(CommandHandler("redeem", redeem))
-
-    # Check subscription expiry every day
-    job_queue = updater.job_queue
-    job_queue.run_daily(check_subscription_expiry, time=datetime.time(12, 0, 0))
+    dispatcher.add_handler(CommandHandler("aivideo", ai_video))
 
     updater.start_polling()
     updater.idle()
