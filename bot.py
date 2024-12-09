@@ -1,203 +1,185 @@
+import requests
 import random
-import telegram
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
-from telegram.ext import ContextTypes
-from pymongo import MongoClient
-import asyncio
-from PIL import Image, ImageDraw, ImageFont
-import io
-import nltk
-from nltk.corpus import words
+import string
+from telegram import Update, ParseMode, InputMediaPhoto
+from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
+import datetime
 
-# Ensure NLTK words corpus is downloaded
-nltk.download('words')
+# API Keys
+DEEPAI_API_KEY = "c6e15240-074c-40e0-9650-eae94c5e75a4"  # Replace with DeepAI API key
+TMDB_API_KEY = "526cadfefc9e1883d7e4d73e799bd07c"      # Replace with TMDB API key
+BOT_TOKEN = "7908847221:AAFo2YqgQ4jYG_Glbp96sINg79zF8T6EWoo"   # Replace with Telegram bot token
+OWNER_ID = 7877197608                    # Replace with your Telegram user ID
 
-# MongoDB connection string (replace with your actual MongoDB URI)
-MONGO_URL = "mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-client = MongoClient(MONGO_URL)
-db = client["game_database"]  # Database name
-leaderboard_collection = db["leaderboard"]  # Collection for leaderboard data
-game_data_collection = db["game_data"]  # Collection for ongoing game data
+# Storage for redeem codes and subscriptions
+redeem_codes = {}
+user_subscriptions = {}
+subscription_expiry = {}  # Store expiration dates
 
-# Token and owner ID (replace with your actual bot token and owner ID)
-TOKEN = "7908847221:AAFo2YqgQ4jYG_Glbp96sINg79zF8T6EWoo"
-OWNER_ID = "7877197608"
+# Function to check subscription
+def is_subscribed(user_id):
+    return user_subscriptions.get(user_id, False) or user_id == OWNER_ID
 
-# Initialize the bot and set up logging
-import logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-logger = logging.getLogger(__name__)
+# Function to check if subscription is about to expire
+def check_subscription_expiry():
+    for user_id, expiry_date in subscription_expiry.items():
+        if expiry_date - datetime.timedelta(days=1) == datetime.date.today():
+            # Notify user one day before expiry
+            context.bot.send_message(user_id, text="Your subscription is about to expire tomorrow! Renew it to continue enjoying premium features.")
 
-# Initialize waiting queue for game
-waiting_queue = []  # List to store users waiting for opponents
-
-# Word list for each letter A-Z
-word_list_by_letter = {
-    'A': ["apple", "ant", "arrow", "axe", "art", "angel"],
-    'B': ["banana", "ball", "bat", "boat", "bottle", "bird"],
-    'C': ["cat", "car", "circle", "cloud", "climb", "cup"],
-    'D': ["dog", "drum", "duck", "door", "dance", "dove"],
-    'E': ["elephant", "ear", "egg", "eagle", "engine"],
-    'F': ["frog", "fish", "flag", "flower", "fan"],
-    'G': ["grape", "goose", "garden", "glove", "guitar"],
-    'H': ["house", "hat", "hill", "hand", "helicopter"],
-    'I': ["ice", "island", "insect", "incredible"],
-    'J': ["jack", "jungle", "jacket", "juice"],
-    'K': ["kite", "kangaroo", "key", "king", "keyboard"],
-    'L': ["lion", "lake", "lamp", "lollipop", "leaf"],
-    'M': ["monkey", "mountain", "moon", "mirror", "music"],
-    'N': ["necklace", "nose", "night", "nail", "notebook"],
-    'O': ["orange", "octopus", "ocean", "onion", "owl"],
-    'P': ["piano", "pencil", "parrot", "plane", "paper"],
-    'Q': ["queen", "question", "quilt", "quicksand"],
-    'R': ["rabbit", "rose", "rainbow", "rocket", "radio"],
-    'S': ["snake", "sun", "ship", "star", "shovel"],
-    'T': ["tree", "tiger", "train", "table", "telescope"],
-    'U': ["umbrella", "unicorn", "under", "up", "universe"],
-    'V': ["vampire", "vulture", "vase", "vacuum", "violin"],
-    'W': ["window", "water", "wolf", "wall", "whale"],
-    'X': ["xylophone", "xenon", "xmas", "x-ray"],
-    'Y': ["yellow", "yoga", "yacht", "yak", "yarn"],
-    'Z': ["zebra", "zoo", "zero", "zip", "zone"]
-}
-
-# Reset the game data and leaderboard
-async def reset_game_data() -> None:
-    game_data_collection.drop()  # Drop all game data
-    leaderboard_collection.drop()  # Drop leaderboard data
-
-# Function to generate a random word based on a random letter (A-Z)
-def generate_random_word():
-    random_letter = random.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ')
-    word_list = word_list_by_letter.get(random_letter, ["default_word"])
-    return random.choice(word_list)
-
-# Start the bot
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.message.from_user
-    await update.message.reply_text(f"Hello {user.first_name}, welcome to the Word Game! Use /game to start playing.")
-
-# Game command: User initiates the game
-async def game(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    user = update.message.from_user
-
-    # Reset the game data and leaderboard
-    await reset_game_data()
-
-    # Check if the user is already in a game
-    existing_game = game_data_collection.find_one({"user_id": user.id})
-    if existing_game and existing_game.get("turn"):
-        await update.message.reply_text("You are already in a game!")
+# /aimg command handler
+def ai_image(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+    if not is_subscribed(user_id):
+        update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
         return
 
-    # Add user to waiting queue
-    waiting_queue.append(user)
+    user_prompt = ' '.join(context.args)
+    if not user_prompt:
+        update.message.reply_text("Please provide a prompt for the AI image generation.")
+        return
 
-    if len(waiting_queue) > 1:
-        # Find the opponent (the second player in the queue)
-        opponent = waiting_queue.pop(0)  # The first player in the queue is matched with the second
-        # Start the game between the two users
-        game_data = {
-            "user_id": user.id,
-            "opponent_id": opponent.id,
-            "level": 1,
-            "lives": 3,
-            "score": 0,
-            "turn": user.id,
-            "opponent_name": opponent.first_name,
-            "start_time": asyncio.get_event_loop().time()
-        }
+    try:
+        url = "https://api.deepai.org/api/text2img"
+        headers = {"api-key": DEEPAI_API_KEY}
+        data = {"text": user_prompt}
 
-        # Insert game data into the database
-        game_data_collection.insert_one(game_data)
+        response = requests.post(url, headers=headers, data=data).json()
+        image_url = response.get("output_url", None)
+        if image_url:
+            update.message.reply_photo(photo=image_url, caption="Here is your AI-generated image!")
+        else:
+            update.message.reply_text("Failed to generate image.")
+    except Exception as e:
+        update.message.reply_text(f"Error generating image: {e}")
 
-        # Notify both players that the game will start in 10 seconds
-        await update.message.reply_text(f"Game started with {opponent.first_name}. The game will start in 10 seconds...")
-        await context.bot.send_message(chat_id=opponent.id, text=f"Game started with {user.first_name}. The game will start in 10 seconds...")
-
-        # Wait 10 seconds before starting the game
-        await asyncio.sleep(10)
-        
-        # Send the first word to both players
-        await send_word(update, context)
-        await context.bot.send_message(chat_id=opponent.id, text=f"Level 1: Write a sentence using the word.")
-    else:
-        await update.message.reply_text("No opponent available. Please wait for someone to join.")
-
-# Send word for current level
-async def send_word(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    game_data = game_data_collection.find_one({"user_id": update.message.from_user.id})
-    level = game_data["level"]
-
-    # Generate a random word (A-Z) for each level
-    word = generate_random_word()  # Get a random word for the current level
-
-    # Get the time for the current level
-    time_for_level = 20  # Default time for each level (20 seconds)
-    
-    await context.bot.send_message(chat_id=update.message.from_user.id, text=f"Level {level}: You have {time_for_level} seconds to write a sentence using the word: {word}")
-
-    # Timer countdown
-    await countdown_timer(update, context, time_for_level)
-
-# Timer countdown for the level
-async def countdown_timer(update: Update, context: ContextTypes.DEFAULT_TYPE, seconds: int) -> None:
-    while seconds > 0:
-        await asyncio.sleep(1)
-        seconds -= 1
-        await context.bot.send_message(chat_id=update.message.from_user.id, text=f"{seconds} seconds remaining.")
-        await context.bot.send_message(chat_id=game_data_collection.find_one({"user_id": update.message.from_user.id})["opponent_id"], text=f"{seconds} seconds remaining.")
-    await check_answer(update, context)
-
-# Validate the sentence (checks if all words are in the nltk words corpus)
-def validate_sentence(sentence):
-    words_in_sentence = sentence.split()
-    # Check if each word in the sentence exists in the NLTK words corpus
-    for word in words_in_sentence:
-        if word.lower() not in words.words():
-            return False
-    return True
-
-# Process user response
-async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+# /aivid command handler
+def ai_video(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
-    game_data = game_data_collection.find_one({"user_id": user_id})
-    
-    if game_data:
-        if game_data["turn"] == user_id:
-            if validate_sentence(update.message.text):
-                # Update game status
-                game_data["score"] += 1
-                game_data["level"] += 1
-                game_data["turn"] = game_data["opponent_id"]
-                game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
-                await update.message.reply_text(f"Correct! You are now at level {game_data['level']}.")
-                await send_word(update, context)
-            else:
-                # Decrease lives if answer is incorrect
-                game_data["lives"] -= 1
-                game_data_collection.update_one({"user_id": user_id}, {"$set": game_data})
-                if game_data["lives"] > 0:
-                    await update.message.reply_text(f"Incorrect! You have {game_data['lives']} lives left.")
-                    await send_word(update, context)
-                else:
-                    await update.message.reply_text("Game Over! You ran out of lives.")
-                    # Game over, delete the game data from the database
-                    game_data_collection.delete_one({"user_id": user_id})
+    if not is_subscribed(user_id):
+        update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
+        return
+
+    if not update.message.photo:
+        update.message.reply_text("Please reply with a photo for AI video generation.")
+        return
+
+    photo_id = update.message.photo[-1].file_id  # Get the largest available resolution
+    try:
+        file = context.bot.get_file(photo_id)
+        file_path = file.file_path
+
+        # Send the photo to DeepAI API for video generation
+        url = "https://api.deepai.org/api/text2video"
+        headers = {"api-key": DEEPAI_API_KEY}
+        data = {"image": file_path}
+
+        response = requests.post(url, headers=headers, data=data).json()
+        video_url = response.get("output_url", None)
+
+        if video_url:
+            update.message.reply_text(f"Here is your AI-generated video: [Watch Video]({video_url})\n\nVideo created using your photo! @TSGCODER", parse_mode=ParseMode.MARKDOWN)
+        else:
+            update.message.reply_text("Failed to generate video.")
+    except Exception as e:
+        update.message.reply_text(f"Error generating video: {e}")
+
+# /moviesearch command handler
+def movie_search(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+    if not is_subscribed(user_id):
+        update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
+        return
+
+    movie_name = ' '.join(context.args)
+    if not movie_name:
+        update.message.reply_text("Please provide the name of the movie you want to search for.")
+        return
+
+    url = f"https://api.themoviedb.org/3/search/movie?api_key={TMDB_API_KEY}&query={movie_name}"
+    response = requests.get(url).json()
+
+    if response.get("results"):
+        movie = response["results"][0]
+        title = movie.get("title", "N/A")
+        overview = movie.get("overview", "N/A")
+        poster_path = movie.get("poster_path")
+        image_url = f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else None
+
+        message = f"🎬 *{title}*\n\n{overview}"
+        if image_url:
+            update.message.reply_photo(photo=image_url, caption=message, parse_mode=ParseMode.MARKDOWN)
+        else:
+            update.message.reply_text(message, parse_mode=ParseMode.MARKDOWN)
+    else:
+        update.message.reply_text("No results found for your movie search.")
+
+# /genredeem command handler (Owner only)
+def genredeem(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+    if user_id != OWNER_ID:
+        update.message.reply_text("You are not authorized to use this command.")
+        return
+
+    if len(context.args) != 1 or context.args[0] not in ["bronze", "silver", "gold"]:
+        update.message.reply_text("Usage: /genredeem <plan>\nPlans: bronze (1 week), silver (3 weeks), gold (1 month)")
+        return
+
+    plan = context.args[0]
+    code = '-'.join([''.join(random.choices(string.ascii_uppercase + string.digits, k=4)) for _ in range(3)])
+    redeem_codes[code] = {"plan": plan, "used": False}
+
+    update.message.reply_text(f"Generated Redeem Code for {plan.capitalize()} Plan:\n`{code}`", parse_mode=ParseMode.MARKDOWN)
+
+# /redeem command handler
+def redeem(update: Update, context: CallbackContext):
+    user_id = update.message.from_user.id
+    if len(context.args) != 1:
+        update.message.reply_text("Usage: /redeem <code>")
+        return
+
+    code = context.args[0]
+    if code not in redeem_codes:
+        update.message.reply_text("Invalid redeem code.")
+        return
+
+    if redeem_codes[code]["used"]:
+        update.message.reply_text("This redeem code has already been used.")
+        return
+
+    # Activate subscription based on plan
+    plan = redeem_codes[code]["plan"]
+    redeem_codes[code]["used"] = True
+    if plan == "bronze":
+        duration = "1 week"
+    elif plan == "silver":
+        duration = "3 weeks"
+    elif plan == "gold":
+        duration = "1 month"
+
+    user_subscriptions[user_id] = True
+    expiry_date = datetime.date.today() + datetime.timedelta(weeks={"bronze": 1, "silver": 3, "gold": 4}[plan])
+    subscription_expiry[user_id] = expiry_date
+
+    update.message.reply_text(f"Subscription activated! Enjoy your {duration} of premium access. Your subscription expires on {expiry_date}. User ID: {user_id}")
 
 # Main function to start the bot
-async def main() -> None:
-    application = Application.builder().token(TOKEN).build()
+def main():
+    updater = Updater(BOT_TOKEN)
+    dispatcher = updater.dispatcher
 
-    # Register handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("game", game))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
+    dispatcher.add_handler(CommandHandler("aimg", ai_image))
+    dispatcher.add_handler(CommandHandler("aivid", ai_video))
+    dispatcher.add_handler(CommandHandler("moviesearch", movie_search))
+    dispatcher.add_handler(CommandHandler("genredeem", genredeem))
+    dispatcher.add_handler(CommandHandler("redeem", redeem))
 
-    # Run the bot
-    await application.run_polling()
+    # Check subscription expiry every day
+    job_queue = updater.job_queue
+    job_queue.run_daily(check_subscription_expiry, time=datetime.time(12, 0, 0))
 
-if __name__ == '__main__':
-    asyncio.run(main())
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == "__main__":
+    main()
