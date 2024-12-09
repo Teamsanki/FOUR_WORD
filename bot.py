@@ -2,8 +2,7 @@ import requests
 import random
 import string
 import datetime
-from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler
-from telegram.ext import Filters
+from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
 from telegram.constants import ParseMode
 
 # API Keys
