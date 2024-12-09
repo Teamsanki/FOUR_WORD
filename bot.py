@@ -2,8 +2,8 @@ import requests
 import random
 import string
 import datetime
-from telegram import Update, InputMediaPhoto, filters
-from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler
+from telegram import Update, InputMediaPhoto
+from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters  # Corrected import
 from telegram.constants import ParseMode
 
 # API Keys
@@ -130,7 +130,7 @@ def redeem(update: Update, context: CallbackContext):
 
     update.message.reply_text(f"Subscription activated! Enjoy your {duration} of premium access. Your subscription expires on {expiry_date}. User ID: {user_id}")
 
- # /aivideo command handler
+# /aivideo command handler
 def ai_video(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     if not is_subscribed(user_id):
