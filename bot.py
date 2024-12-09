@@ -31,7 +31,7 @@ def check_subscription_expiry(context: CallbackContext):
             )
 
 # /aimg command handler
-async def ai_image(update: Update, context: CallbackContext):
+: CallbackContext):
     user_id = update.message.from_user.id
     if not is_subscribed(user_id):
         await update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
@@ -48,6 +48,8 @@ async def ai_image(update: Update, context: CallbackContext):
         data = {"text": user_prompt}
 
         response = requests.post(url, headers=headers, data=data).json()
+        print(f"API Response: {response}")  # Log the full response
+
         image_url = response.get("output_url", None)
         if image_url:
             await update.message.reply_photo(photo=image_url, caption="Here is your AI-generated image!")
@@ -131,7 +133,7 @@ async def redeem(update: Update, context: CallbackContext):
     await update.message.reply_text(f"Subscription activated! Enjoy your {duration} of premium access. Your subscription expires on {expiry_date}. User ID: {user_id}")
 
 # /aivideo command handler
-async def ai_video(update: Update, context: CallbackContext):
+: CallbackContext):
     user_id = update.message.from_user.id
     if not is_subscribed(user_id):
         await update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
@@ -143,11 +145,13 @@ async def ai_video(update: Update, context: CallbackContext):
         return
 
     try:
-        url = "https://api.deepai.org/api/text2video"  # Replace with an actual video generation API
+        url = "https://api.deepai.org/api/text2video"
         headers = {"api-key": DEEPAI_API_KEY}
         data = {"text": user_prompt}
 
         response = requests.post(url, headers=headers, data=data).json()
+        print(f"API Response: {response}")  # Log the full response
+
         video_url = response.get("output_url", None)
         if video_url:
             await update.message.reply_video(video=video_url, caption="Here is your AI-generated video!")
