@@ -2,8 +2,8 @@ import requests
 import random
 import string
 import datetime
-from telegram import Update, InputMediaPhoto
-from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters  # Corrected import
+from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler
+from telegram import Filters  # Move Filters import to the telegram module
 from telegram.constants import ParseMode
 
 # API Keys
