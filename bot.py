@@ -3,7 +3,7 @@ import random
 import string
 import datetime
 from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler
-from telegram import Filters  # Move Filters import to the telegram module
+from telegram.ext import Filters
 from telegram.constants import ParseMode
 
 # API Keys
