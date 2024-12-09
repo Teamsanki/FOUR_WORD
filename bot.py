@@ -1,9 +1,10 @@
 import requests
 import random
 import string
-from telegram import Update, ParseMode, InputMediaPhoto
-from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
 import datetime
+from telegram import Update, InputMediaPhoto
+from telegram.ext import Updater, CommandHandler, CallbackContext, MessageHandler, Filters
+from telegram.constants import ParseMode  # Updated import for ParseMode
 
 # API Keys
 DEEPAI_API_KEY = "c6e15240-074c-40e0-9650-eae94c5e75a4"  # Replace with DeepAI API key
@@ -21,11 +22,13 @@ def is_subscribed(user_id):
     return user_subscriptions.get(user_id, False) or user_id == OWNER_ID
 
 # Function to check if subscription is about to expire
-def check_subscription_expiry():
+def check_subscription_expiry(context: CallbackContext):
     for user_id, expiry_date in subscription_expiry.items():
         if expiry_date - datetime.timedelta(days=1) == datetime.date.today():
             # Notify user one day before expiry
-            context.bot.send_message(user_id, text="Your subscription is about to expire tomorrow! Renew it to continue enjoying premium features.")
+            context.bot.send_message(
+                user_id, text="Your subscription is about to expire tomorrow! Renew it to continue enjoying premium features."
+            )
 
 # /aimg command handler
 def ai_image(update: Update, context: CallbackContext):
@@ -52,37 +55,6 @@ def ai_image(update: Update, context: CallbackContext):
             update.message.reply_text("Failed to generate image.")
     except Exception as e:
         update.message.reply_text(f"Error generating image: {e}")
-
-# /aivid command handler
-def ai_video(update: Update, context: CallbackContext):
-    user_id = update.message.from_user.id
-    if not is_subscribed(user_id):
-        update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
-        return
-
-    if not update.message.photo:
-        update.message.reply_text("Please reply with a photo for AI video generation.")
-        return
-
-    photo_id = update.message.photo[-1].file_id  # Get the largest available resolution
-    try:
-        file = context.bot.get_file(photo_id)
-        file_path = file.file_path
-
-        # Send the photo to DeepAI API for video generation
-        url = "https://api.deepai.org/api/text2video"
-        headers = {"api-key": DEEPAI_API_KEY}
-        data = {"image": file_path}
-
-        response = requests.post(url, headers=headers, data=data).json()
-        video_url = response.get("output_url", None)
-
-        if video_url:
-            update.message.reply_text(f"Here is your AI-generated video: [Watch Video]({video_url})\n\nVideo created using your photo! @TSGCODER", parse_mode=ParseMode.MARKDOWN)
-        else:
-            update.message.reply_text("Failed to generate video.")
-    except Exception as e:
-        update.message.reply_text(f"Error generating video: {e}")
 
 # /moviesearch command handler
 def movie_search(update: Update, context: CallbackContext):
@@ -150,12 +122,7 @@ def redeem(update: Update, context: CallbackContext):
     # Activate subscription based on plan
     plan = redeem_codes[code]["plan"]
     redeem_codes[code]["used"] = True
-    if plan == "bronze":
-        duration = "1 week"
-    elif plan == "silver":
-        duration = "3 weeks"
-    elif plan == "gold":
-        duration = "1 month"
+    duration = {"bronze": "1 week", "silver": "3 weeks", "gold": "1 month"}[plan]
 
     user_subscriptions[user_id] = True
     expiry_date = datetime.date.today() + datetime.timedelta(weeks={"bronze": 1, "silver": 3, "gold": 4}[plan])
@@ -169,7 +136,6 @@ def main():
     dispatcher = updater.dispatcher
 
     dispatcher.add_handler(CommandHandler("aimg", ai_image))
-    dispatcher.add_handler(CommandHandler("aivid", ai_video))
     dispatcher.add_handler(CommandHandler("moviesearch", movie_search))
     dispatcher.add_handler(CommandHandler("genredeem", genredeem))
     dispatcher.add_handler(CommandHandler("redeem", redeem))
