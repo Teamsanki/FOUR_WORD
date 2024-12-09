@@ -31,7 +31,7 @@ def check_subscription_expiry(context: CallbackContext):
             )
 
 # /aimg command handler
-: CallbackContext):
+async def ai_image(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     if not is_subscribed(user_id):
         await update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
@@ -133,7 +133,7 @@ async def redeem(update: Update, context: CallbackContext):
     await update.message.reply_text(f"Subscription activated! Enjoy your {duration} of premium access. Your subscription expires on {expiry_date}. User ID: {user_id}")
 
 # /aivideo command handler
-: CallbackContext):
+async def ai_video(update: Update, context: CallbackContext):
     user_id = update.message.from_user.id
     if not is_subscribed(user_id):
         await update.message.reply_text("You need a subscription to use this feature. Use /redeem to activate.")
