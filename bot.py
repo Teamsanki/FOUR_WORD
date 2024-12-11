@@ -25,7 +25,7 @@ def views(update: Update, context: CallbackContext) -> None:
 
 def main() -> None:
     # Replace 'YOUR_TOKEN' with your bot's API token
-    updater = Updater("YOUR_TOKEN")
+    updater = Updater("7908847221:AAFo2YqgQ4jYG_Glbp96sINg79zF8T6EWoo")
 
     # Get the dispatcher to register handlers
     dispatcher = updater.dispatcher
