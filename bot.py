@@ -74,47 +74,33 @@ async def add_game(client, message):
     await message.reply(f"Game '{game_name}' added successfully!")
 
 
-# Show game list when @tsgame is typed (Inline Query Handler)
-@app.on_inline_query()
-async def show_game_list(client, query):
-    # Show a loading indicator while fetching games
-    results = [
-        InlineQueryResultArticle(
-            title="Loading games...",
-            input_message_content=InputTextMessageContent("Please wait, fetching games..."),
-            description="The list of available games is loading."
-        )
-    ]
-    
-    # Answer the query with the loading result first
-    await query.answer(results, cache_time=0)
-
-    # Now fetch the games from MongoDB
+# Show game list when @tsgame is typed (Inline Query Handler in both private and group)
+@app.on_message(filters.command("tsgame"))
+async def show_game_list(client, message):
+    # Fetch games from MongoDB
     games = list(games_collection.find())
 
     if not games:
-        results = [
-            InlineQueryResultArticle(
-                title="No games available",
-                input_message_content=InputTextMessageContent("🎮 No games have been added yet!")
-            )
-        ]
-    else:
-        # Prepare the results for displaying game names
-        results = [
-            InlineQueryResultArticle(
-                title=game["name"],  # Display the game name
-                input_message_content=InputTextMessageContent(
-                    f"🎮 **Game**: {game['name']}\n"
-                    f"👉 [Play Now]({game['link']})"
-                ),
-                description=f"Click to play {game['name']}",
-            )
-            for game in games
-        ]
+        await message.reply("🎮 **No games available yet!**")
+        return
     
-    # Answer the query with the game results
-    await query.answer(results, cache_time=1)
+    # Prepare the inline keyboard with game names
+    game_buttons = [
+        InlineKeyboardButton(game["name"], url=game["link"]) 
+        for game in games
+    ]
+    
+    # Organize buttons in rows (3 buttons per row, adjust as needed)
+    keyboard = InlineKeyboardMarkup(
+        [game_buttons[i:i+3] for i in range(0, len(game_buttons), 3)]
+    )
+
+    # Reply with the game list to the user (both private and group)
+    await message.reply(
+        "🎮 **Choose a game to play**:",
+        reply_markup=keyboard
+    )
+
 
 # Log scores automatically (Simulate auto-tracking)
 @app.on_message(filters.regex(r"score: (\d+)") & filters.group)
