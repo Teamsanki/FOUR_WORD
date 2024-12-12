@@ -74,49 +74,47 @@ async def add_game(client, message):
     await message.reply(f"Game '{game_name}' added successfully!")
 
 
+# Show game list when @tsgame is typed (Inline Query Handler)
 @app.on_inline_query()
 async def show_game_list(client, query):
-    # Create a result with a loading button
-    loading_button = InlineQueryResultArticle(
-        title="Searching for games...",
-        input_message_content=InputTextMessageContent("🔄 Searching..."),
-    )
-
-    # Initial loading state
-    await query.answer([loading_button], cache_time=1)
-
-    # Fetch games after a short delay to simulate loading
-    games = list(games_collection.find())
-    print(f"Games fetched: {games}")
-
-    if not games:  # No games available
-        await query.answer(
-            [
-                InlineQueryResultArticle(
-                    title="No games available",
-                    input_message_content=InputTextMessageContent("🎮 No games have been added yet!")
-                )
-            ],
-            cache_time=1
-        )
-        return
-
-    # Prepare the results to show game names
+    # Show a loading indicator while fetching games
     results = [
         InlineQueryResultArticle(
-            title=game["name"],  # Display the game name
-            input_message_content=InputTextMessageContent(
-                f"🎮 **Game**: {game['name']}\n"
-                f"👉 [Play Now]({game['link']})"
-            ),
-            description=f"Click to play {game['name']}",
+            title="Loading games...",
+            input_message_content=InputTextMessageContent("Please wait, fetching games..."),
+            description="The list of available games is loading."
         )
-        for game in games
     ]
+    
+    # Answer the query with the loading result first
+    await query.answer(results, cache_time=0)
 
-    # Change the state to show the results
+    # Now fetch the games from MongoDB
+    games = list(games_collection.find())
+
+    if not games:
+        results = [
+            InlineQueryResultArticle(
+                title="No games available",
+                input_message_content=InputTextMessageContent("🎮 No games have been added yet!")
+            )
+        ]
+    else:
+        # Prepare the results for displaying game names
+        results = [
+            InlineQueryResultArticle(
+                title=game["name"],  # Display the game name
+                input_message_content=InputTextMessageContent(
+                    f"🎮 **Game**: {game['name']}\n"
+                    f"👉 [Play Now]({game['link']})"
+                ),
+                description=f"Click to play {game['name']}",
+            )
+            for game in games
+        ]
+    
+    # Answer the query with the game results
     await query.answer(results, cache_time=1)
-
 
 # Log scores automatically (Simulate auto-tracking)
 @app.on_message(filters.regex(r"score: (\d+)") & filters.group)
