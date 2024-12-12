@@ -1,6 +1,7 @@
 from pyrogram import Client, filters
 from pymongo import MongoClient
 from pyrogram.types import InlineQueryResultArticle, InputTextMessageContent, InlineKeyboardButton, InlineKeyboardMarkup
+import re
 
 # Bot Configuration
 API_ID = "24740695"
@@ -70,6 +71,12 @@ async def add_game(client, message):
         await message.reply("Usage: /gameadd <game_name> <game_link>")
         return
     game_name, game_link = message.command[1], message.command[2]
+    
+    # Check if the URL is valid
+    if not re.match(r'^https?://', game_link):
+        await message.reply("The game link is invalid. Please ensure the URL starts with http:// or https://.")
+        return
+    
     games_collection.insert_one({"name": game_name, "link": game_link})
     await message.reply(f"Game '{game_name}' added successfully!")
 
@@ -85,11 +92,18 @@ async def show_game_list(client, message):
         return
     
     # Prepare the inline keyboard with game names
-    game_buttons = [
-        InlineKeyboardButton(game["name"], url=game["link"]) 
-        for game in games
-    ]
+    game_buttons = []
+    for game in games:
+        # Ensure the URL is valid before creating the button
+        if not re.match(r'^https?://', game["link"]):
+            continue  # Skip invalid URLs
+
+        game_buttons.append(InlineKeyboardButton(game["name"], url=game["link"]))
     
+    if not game_buttons:
+        await message.reply("🎮 **No valid game links available!**")
+        return
+
     # Organize buttons in rows (3 buttons per row, adjust as needed)
     keyboard = InlineKeyboardMarkup(
         [game_buttons[i:i+3] for i in range(0, len(game_buttons), 3)]
