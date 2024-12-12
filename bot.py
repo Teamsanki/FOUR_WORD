@@ -9,6 +9,8 @@ BOT_TOKEN = "7908847221:AAFo2YqgQ4jYG_Glbp96sINg79zF8T6EWoo"
 GROUP_ID = -1002148651992  # Replace with your group ID for notifications
 OWNER_USERNAME = "TSGCODER"  # Owner username
 OWNER_ID = 7877197608
+
+# Initialize the bot
 app = Client("game_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 # MongoDB connection
@@ -17,8 +19,8 @@ db = mongo_client["game_bot"]
 games_collection = db["games"]
 scores_collection = db["scores"]
 
+
 # Notify the group when the bot starts
-@app.on_start
 async def notify_group_on_start():
     # Send a message to the group that the bot is online
     await app.send_message(
@@ -133,4 +135,7 @@ async def show_scores(client, message):
 
 
 if __name__ == "__main__":
-    app.run()
+    print("🔄 Starting the bot...")
+    app.start()
+    app.loop.run_until_complete(notify_group_on_start())
+    app.idle()
