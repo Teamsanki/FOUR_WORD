@@ -6,7 +6,7 @@ from pyrogram.types import InputMediaPhoto
 API_ID = "24740695"
 API_HASH = "a95990848f2b93b8131a4a7491d97092"
 BOT_TOKEN = "7908847221:AAFo2YqgQ4jYG_Glbp96sINg79zF8T6EWoo"
-GROUP_ID = -1002148651992  # Replace with your group ID for notifications
+GROUP_ID = -1002100433415  # Replace with your group ID for notifications
 OWNER_USERNAME = "TSGCODER"  # Owner username
 OWNER_ID = 7877197608
 
