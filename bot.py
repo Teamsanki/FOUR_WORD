@@ -1,6 +1,6 @@
 from pyrogram import Client, filters
 from pymongo import MongoClient
-from pyrogram.types import InlineQueryResultArticle, InputTextMessageContent
+from pyrogram.types import InlineQueryResultArticle, InputTextMessageContent, InlineKeyboardButton, InlineKeyboardMarkup
 
 # Bot Configuration
 API_ID = "24740695"
@@ -18,7 +18,6 @@ mongo_client = MongoClient("mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mon
 db = mongo_client["game_bot"]
 games_collection = db["games"]
 scores_collection = db["scores"]
-
 
 # Notify the group when the bot starts
 async def notify_group_on_start():
@@ -78,6 +77,17 @@ async def add_game(client, message):
 # Display game list (@tsgame)
 @app.on_inline_query()
 async def show_game_list(client, query):
+    # Show loading spinner
+    results = [
+        InlineQueryResultArticle(
+            title="Loading games...",
+            input_message_content=InputTextMessageContent("🔄 **Loading games... Please wait.**"),
+            description="Fetching games from database"
+        )
+    ]
+    await query.answer(results, cache_time=1)  # Send the loading state
+
+    # Fetch the games from the database
     games = list(games_collection.find())
     print(f"Games fetched: {games}")  # Debugging line to check fetched games
 
@@ -103,7 +113,7 @@ async def show_game_list(client, query):
             )
         ]
 
-    # Respond to the inline query
+    # Send the final results (cross the loading state and show games)
     await query.answer(results, cache_time=1)
 
 
