@@ -24,7 +24,6 @@ user_clicks_collection = db["user_clicks"]
 bets_collection = db["bets"]
 
 # Notify the group when the bot starts
-@app.on_start()
 async def notify_group_on_start(client):
     # Send a message to the group that the bot is online
     await client.send_message(
