@@ -207,4 +207,5 @@ async def delete_game(client, message):
 
 
 # Run the bot
-app.run()
+if __name__ == "__main__":
+    app.run(notify_group_on_start())
