@@ -1,6 +1,6 @@
 from pyrogram import Client, filters
 from pymongo import MongoClient
-from pyrogram.types import InputMediaPhoto
+from pyrogram.types import InlineQueryResultArticle, InputTextMessageContent
 
 # Bot Configuration
 API_ID = "24740695"
@@ -11,7 +11,7 @@ OWNER_USERNAME = "TSGCODER"  # Owner username
 OWNER_ID = 7877197608
 
 # Initialize the bot
-app = Client("game_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+app = Client("tsgame_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
 # MongoDB connection
 mongo_client = MongoClient("mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
@@ -22,6 +22,7 @@ scores_collection = db["scores"]
 
 # Notify the group when the bot starts
 async def notify_group_on_start():
+    await app.start()
     # Send a message to the group that the bot is online
     await app.send_message(
         chat_id=GROUP_ID,
@@ -48,7 +49,7 @@ async def start_bot(client, message):
             f"🌟 **Welcome to the Game Bot, {username}!** 🌟\n\n"
             "🎮 Explore exciting games, track your scores, and compete with others!\n\n"
             f"👨‍💻 **Bot Owner:** @{OWNER_USERNAME}\n"
-            "Use `@sanki` to view available games or type `/scores` to check your scores.\n"
+            "Use `@tsgame` to view available games or type `/scores` to check your scores.\n"
             "Get ready for some fun and challenges ahead!"
         )
     )
@@ -74,20 +75,31 @@ async def add_game(client, message):
     await message.reply(f"Game '{game_name}' added successfully!")
 
 
-# Display game list (@sanki)
+# Display game list (@tsgame)
 @app.on_inline_query()
 async def show_game_list(client, query):
-    games = games_collection.find()
+    games = list(games_collection.find())
     results = [
-        {
-            "type": "article",
-            "title": game["name"],
-            "input_message_content": {"message_text": f"[Play {game['name']}]({game['link']})"},
-            "description": f"Click to play {game['name']}",
-        }
+        InlineQueryResultArticle(
+            title=game["name"],
+            input_message_content=InputTextMessageContent(
+                f"🎮 **Game:** {game['name']}\n👉 [Play Now]({game['link']})"
+            ),
+            description=f"Click to play {game['name']}",
+        )
         for game in games
     ]
-    await query.answer(results, cache_time=0)
+
+    # Handle empty games list
+    if not results:
+        results = [
+            InlineQueryResultArticle(
+                title="No games available",
+                input_message_content=InputTextMessageContent("🎮 No games have been added yet!")
+            )
+        ]
+
+    await query.answer(results, cache_time=1)
 
 
 # Log scores automatically (Simulate auto-tracking)
