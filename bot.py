@@ -74,22 +74,32 @@ async def add_game(client, message):
     await message.reply(f"Game '{game_name}' added successfully!")
 
 
-# Display game list (@tsgame)
 @app.on_inline_query()
 async def show_game_list(client, query):
-    # Show loading spinner
-    results = [
-        InlineQueryResultArticle(
-            title="Loading games...",
-            input_message_content=InputTextMessageContent("🔄 **Loading games... Please wait.**"),
-            description="Fetching games from database"
-        )
-    ]
-    await query.answer(results, cache_time=1)  # Send the loading state
+    # Create a result with a loading button
+    loading_button = InlineQueryResultArticle(
+        title="Searching for games...",
+        input_message_content=InputTextMessageContent("🔄 Searching..."),
+    )
 
-    # Fetch the games from the database
+    # Initial loading state
+    await query.answer([loading_button], cache_time=1)
+
+    # Fetch games after a short delay to simulate loading
     games = list(games_collection.find())
-    print(f"Games fetched: {games}")  # Debugging line to check fetched games
+    print(f"Games fetched: {games}")
+
+    if not games:  # No games available
+        await query.answer(
+            [
+                InlineQueryResultArticle(
+                    title="No games available",
+                    input_message_content=InputTextMessageContent("🎮 No games have been added yet!")
+                )
+            ],
+            cache_time=1
+        )
+        return
 
     # Prepare the results to show game names
     results = [
@@ -104,16 +114,7 @@ async def show_game_list(client, query):
         for game in games
     ]
 
-    # Handle empty games list
-    if not results:
-        results = [
-            InlineQueryResultArticle(
-                title="No games available",
-                input_message_content=InputTextMessageContent("🎮 No games have been added yet!")
-            )
-        ]
-
-    # Send the final results (cross the loading state and show games)
+    # Change the state to show the results
     await query.answer(results, cache_time=1)
 
 
