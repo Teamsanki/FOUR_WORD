@@ -1,7 +1,8 @@
 from pyrogram import Client, filters
 from pymongo import MongoClient
-from pyrogram.types import InlineQueryResultArticle, InputTextMessageContent, InlineKeyboardButton, InlineKeyboardMarkup
+from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 import re
+import time
 
 # Bot Configuration
 API_ID = "24740695"
@@ -19,6 +20,7 @@ mongo_client = MongoClient("mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mon
 db = mongo_client["game_bot"]
 games_collection = db["games"]
 scores_collection = db["scores"]
+user_clicks_collection = db["user_clicks"]
 
 # Notify the group when the bot starts
 async def notify_group_on_start():
@@ -116,6 +118,20 @@ async def show_game_list(client, message):
     )
 
 
+# Track user click and store game link clicked
+@app.on_inline_query()
+async def handle_game_click(client, inline_query):
+    user_id = inline_query.from_user.id
+    game_link = inline_query.query
+
+    # Record the game link clicked by the user
+    user_clicks_collection.insert_one({"user_id": user_id, "game_link": game_link, "timestamp": time.time()})
+    await inline_query.answer(
+        results=[],
+        cache_time=0
+    )
+
+
 # Log scores automatically (Simulate auto-tracking)
 @app.on_message(filters.regex(r"score: (\d+)") & filters.group)
 async def log_score(client, message):
@@ -124,14 +140,26 @@ async def log_score(client, message):
     username = message.from_user.username or message.from_user.first_name
     game_name = "Example Game"  # Replace with dynamic game name based on context if possible
 
-    # Save to MongoDB
-    scores_collection.insert_one({
-        "user_id": user_id,
-        "username": username,
-        "game_name": game_name,
-        "score": score
-    })
-    await message.reply(f"Score of {score} logged for {username} in {game_name}!")
+    # Check if the user clicked the link
+    click_data = user_clicks_collection.find_one({"user_id": user_id})
+
+    if click_data:
+        # If game clicked, log the score
+        scores_collection.insert_one({
+            "user_id": user_id,
+            "username": username,
+            "game_name": game_name,
+            "score": score
+        })
+        # Notify group of the score
+        await app.send_message(
+            chat_id=GROUP_ID,
+            text=f"🏆 **Game Over**: {username} scored {score} in {game_name} by clicking the game link!"
+        )
+        # Clear the click data after the game
+        user_clicks_collection.delete_one({"user_id": user_id})
+    else:
+        await message.reply("❌ **Game not started via the bot link, score not saved!**")
 
 
 # Show leaderboard
@@ -156,10 +184,25 @@ async def show_scores(client, message):
     scores = scores_collection.find({"user_id": user_id})
     reply_text = "🎮 **Your Scores** 🎮\n\n"
     for score in scores:
-        reply_text += f"{score['game_name']}: {score['score']} points\n"
+        reply_text += f"{score['game_name']} - {score['score']} points\n"
     await message.reply(reply_text)
 
 
+# Command to delete a game (Only owner can use it)
+@app.on_message(filters.command("delgm") & filters.user(OWNER_ID))
+async def delete_game(client, message):
+    if len(message.command) < 3:
+        await message.reply("Usage: /delgm <game_name> <game_link>")
+        return
+    game_name, game_link = message.command[1], message.command[2]
+
+    # Find and delete the game by name and link
+    result = games_collection.delete_one({"name": game_name, "link": game_link})
+    if result.deleted_count > 0:
+        await message.reply(f"Game '{game_name}' has been deleted successfully!")
+    else:
+        await message.reply(f"Game '{game_name}' not found.")
+
+# Run the bot
 if __name__ == "__main__":
-    print("🔄 Starting the bot...")
-    app.run()  # Start the bot and block until it's stopped
+    app.run(notify_group_on_start())
