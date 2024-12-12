@@ -136,6 +136,4 @@ async def show_scores(client, message):
 
 if __name__ == "__main__":
     print("🔄 Starting the bot...")
-    app.start()
-    app.loop.run_until_complete(notify_group_on_start())
-    app.idle()
+    app.run()  # Start the bot and block until it's stopped
