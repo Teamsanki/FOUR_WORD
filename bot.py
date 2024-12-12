@@ -36,7 +36,7 @@ async def start_bot(client, message):
     username = f"@{user.username}" if user.username else user.first_name
 
     # Photo URL (Replace with your desired image)
-    photo_url = "https://via.placeholder.com/600x400.png?text=Welcome+to+Game+Bot"
+    photo_url = "https://graph.org/file/ae1108390e6dc4f7231cf-ce089431124e12e862.jpg"
 
     # Send the photo with the welcome message
     await client.send_photo(
