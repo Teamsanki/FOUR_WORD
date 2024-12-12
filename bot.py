@@ -79,11 +79,15 @@ async def add_game(client, message):
 @app.on_inline_query()
 async def show_game_list(client, query):
     games = list(games_collection.find())
+    print(f"Games fetched: {games}")  # Debugging line to check fetched games
+
+    # Prepare the results to show game names
     results = [
         InlineQueryResultArticle(
-            title=game["name"],
+            title=game["name"],  # Display the game name
             input_message_content=InputTextMessageContent(
-                f"🎮 **Game:** {game['name']}\n👉 [Play Now]({game['link']})"
+                f"🎮 **Game**: {game['name']}\n"
+                f"👉 [Play Now]({game['link']})"
             ),
             description=f"Click to play {game['name']}",
         )
@@ -99,6 +103,7 @@ async def show_game_list(client, query):
             )
         ]
 
+    # Respond to the inline query
     await query.answer(results, cache_time=1)
 
 
