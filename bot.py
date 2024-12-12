@@ -21,6 +21,7 @@ db = mongo_client["game_bot"]
 games_collection = db["games"]
 scores_collection = db["scores"]
 user_clicks_collection = db["user_clicks"]
+bets_collection = db["bets"]
 
 # Notify the group when the bot starts
 async def notify_group_on_start():
@@ -202,6 +203,81 @@ async def delete_game(client, message):
         await message.reply(f"Game '{game_name}' has been deleted successfully!")
     else:
         await message.reply(f"Game '{game_name}' not found.")
+
+
+# /bet command to place a bet
+@app.on_message(filters.command("bet"))
+async def bet_command(client, message):
+    if len(message.command) < 3:
+        await message.reply("Usage: /bet <game_name> <@username>")
+        return
+
+    game_name = message.command[1]
+    bet_user = message.command[2]
+
+    # Check if the game exists
+    game = games_collection.find_one({"name": game_name})
+
+    if not game:
+        await message.reply(f"❌ **Game not found!** Use `/gamelist` to see available games.")
+        return
+
+    # Send an inline message with buttons to the bet recipient
+    buttons = [
+        InlineKeyboardButton("Accept", callback_data=f"accept_bet:{game_name}:{message.from_user.id}"),
+        InlineKeyboardButton("Reject", callback_data=f"reject_bet:{game_name}:{message.from_user.id}")
+    ]
+    keyboard = InlineKeyboardMarkup([buttons])
+
+    # Tag the bet recipient
+    await message.reply(
+        f"🎮 **Bet Invitation!** {bet_user} has challenged you to a bet on the game {game_name}!\n\n"
+        "Please choose an option below to accept or reject the bet.",
+        reply_markup=keyboard
+    )
+
+
+# Handle the acceptance and rejection of the bet
+@app.on_callback_query(filters.regex(r"accept_bet|reject_bet"))
+async def handle_bet_response(client, callback_query):
+    action, game_name, bet_user_id = callback_query.data.split(":")
+    bet_user_id = int(bet_user_id)
+
+    if action == "accept_bet":
+        # Provide the game link to the user who accepted
+        game = games_collection.find_one({"name": game_name})
+        await callback_query.message.reply(
+            f"✅ **Bet Accepted!** You are now playing {game_name}!\n"
+            f"Start playing here: {game['link']}"
+        )
+
+    elif action == "reject_bet":
+        # Notify the user who made the bet that their bet was rejected
+        await callback_query.message.reply(
+            f"❌ **Bet Rejected!** {callback_query.from_user.first_name} has rejected your bet on {game_name}."
+        )
+
+    # Remove the inline keyboard (dismiss it)
+    await callback_query.message.edit_reply_markup(None)
+
+  # Show the game list (just names) when /gamelist is typed
+@app.on_message(filters.command("gamelist"))
+async def show_game_list(client, message):
+    # Fetch games from MongoDB
+    games = list(games_collection.find())
+
+    if not games:
+        await message.reply("🎮 **No games available yet!**")
+        return
+    
+    # Prepare the list of game names
+    game_names = "\n".join([game["name"] for game in games])
+
+    # Send the list of game names
+    await message.reply(
+        f"🎮 **Available Games**:\n\n{game_names}"
+    )
+
 
 # Run the bot
 if __name__ == "__main__":
