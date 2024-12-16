@@ -4,11 +4,18 @@ from telegram.error import BadRequest
 from datetime import datetime
 import logging
 import asyncio
+import pymongo
 
 # Bot token and logger group ID
 BOT_TOKEN = "7718687925:AAHaKS11Trfc7nQztuM_uEmWWgzSBopZgBU"  # Replace with your bot token
 LOGGER_GROUP_ID = "-1002100433415"  # Replace with your logger group ID
 OWNER_ID = 7877197608  # Replace with your Telegram user ID (bot owner)
+
+# MongoDB connection URL
+MONGO_URL = "mongodb://localhost:27017"  # Replace with your MongoDB URL
+client = pymongo.MongoClient(MONGO_URL)
+db = client['bot_data']
+stats_collection = db['stats']
 
 # List of banned words
 BANNED_WORDS = ["madrchod", "randi", "randwi", "chutiya", "gaand", "gand", "lund", "lwda", "loda", "louda", "behnchod"]
@@ -36,8 +43,8 @@ USER_WARNINGS = {}
 # Start command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     buttons = [
-        [InlineKeyboardButton("Owner", url="https://t.me/YOUR_USERNAME")],
-        [InlineKeyboardButton("Support Channel", url="https://t.me/YOUR_CHANNEL_LINK")],
+        [InlineKeyboardButton("Owner", url="https://t.me/TSGCODER")],
+        [InlineKeyboardButton("Support Channel", url="https://t.me/Teamsankinetworkk")],
         [InlineKeyboardButton("Commands", callback_data="show_commands")],
     ]
     keyboard = InlineKeyboardMarkup(buttons)
@@ -70,6 +77,13 @@ async def added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
         chat_id=LOGGER_GROUP_ID,
         text=f"Bot added to group '{update.effective_chat.title}' by @{added_by}.",
     )
+    # Log to MongoDB
+    db.stats.insert_one({
+        "event": "group_added",
+        "group_name": update.effective_chat.title,
+        "added_by": added_by,
+        "timestamp": datetime.now()
+    })
     # Check for admin rights
     try:
         chat_member = await context.bot.get_chat_member(update.effective_chat.id, context.bot.id)
@@ -124,55 +138,6 @@ async def utag(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Only admins can use this command!")
 
-# Ban command
-async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_chat.get_member(update.effective_user.id).status not in ("administrator", "creator"):
-        await update.message.reply_text("Only admins can use the ban command!")
-        return
-
-    if update.message.reply_to_message:
-        target_user_id = update.message.reply_to_message.from_user.id
-    else:
-        try:
-            target_user_id = context.args[0]
-        except IndexError:
-            await update.message.reply_text("Please reply to a message or specify a username to ban.")
-            return
-
-    try:
-        await context.bot.ban_chat_member(update.effective_chat.id, target_user_id)
-        await update.message.reply_text("User has been banned successfully!")
-    except Exception as e:
-        await update.message.reply_text(f"Failed to ban user: {e}")
-
-# Broadcast command (Owner only)
-async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != OWNER_ID:
-        await update.message.reply_text("Only the owner can use this command!")
-        return
-
-    message = update.message.reply_to_message
-    if not message:
-        await update.message.reply_text("Please reply to a message to broadcast!")
-        return
-
-    chats = context.application.chat_data.keys()
-    for chat_id in chats:
-        try:
-            await context.bot.send_message(chat_id=chat_id, text=message.text)
-        except Exception as e:
-            logger.warning(f"Failed to send message to {chat_id}: {e}")
-
-    # Track bot's uptime
-start_time = datetime.now()
-
-# Dummy stats data
-stats_data = {
-    "users": 1200,  # Dummy number of users
-    "groups": 50,   # Dummy number of groups
-    "blocked": 10,  # Dummy number of blocked users
-}
-
 # Stats command
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     buttons = [
@@ -185,21 +150,27 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=keyboard
     )
 
-# Show overall stats
+# Show overall stats with photo and stylish text
 async def show_overall_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     uptime = str(datetime.now() - start_time).split('.')[0]  # Get uptime in HH:MM:SS format
+    # You can add a photo URL here if it's hosted online, or a file path if it's local.
+    photo_url = "https://graph.org/file/ae1108390e6dc4f7231cf-ce089431124e12e862.jpg"  # Replace with actual image URL or file path
 
     overall_stats = f"""
-    Users: {stats_data['users']}
-    Groups: {stats_data['groups']}
-    Uptime: {uptime}
-    Blocked: {stats_data['blocked']}
-    Made by @TSGCODER
-    """
+*👥 Users:* {stats_data['users']}
+*📚 Groups:* {stats_data['groups']}
+*⏳ Uptime:* {uptime}
+*🚫 Blocked:* {stats_data['blocked']}
 
+Made by @TSGCODER
+"""
     await query.answer()
-    await query.edit_message_text(overall_stats)
+    await query.edit_message_text(
+        overall_stats,
+        parse_mode="Markdown",  # Markdown styling
+    )
+    await query.message.reply_photo(photo_url)  # Sends the image with the stats
 
 # Back button functionality
 async def back_to_main_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
