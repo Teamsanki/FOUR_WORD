@@ -44,7 +44,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     buttons = [
         [InlineKeyboardButton("Owner", url="https://t.me/TSGCODER")],
         [InlineKeyboardButton("Support Channel", url="https://t.me/Teamsankinetworkk")],
-        [InlineKeyboardButton("Commands", callback_data="show_commands")],
+        [InlineKeyboardButton("Commands", callback_data="show_commands")],  # Button to show commands
     ]
     keyboard = InlineKeyboardMarkup(buttons)
     try:
@@ -59,6 +59,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except BadRequest as e:
         logger.error(f"Error sending message to logger group: {e}")
 
+
 # Show commands inline
 async def show_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -71,7 +72,8 @@ Commands available:
 """
     try:
         await query.answer()
-        await query.edit_message_text(commands_info)
+        # Edit the message text to show commands when button is clicked
+        await query.edit_message_text(commands_info, reply_markup=None)  # Set reply_markup=None to avoid additional buttons
     except BadRequest as e:
         logger.error(f"Error editing message: {e}")
         await query.answer("Sorry, I couldn't edit the message. Please try again later.")
@@ -168,6 +170,9 @@ async def utag(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text("Only admins can use this command!")
 
+# Bot start time to calculate uptime
+start_time = datetime.now()
+
 # Stats command
 async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     buttons = [
@@ -183,6 +188,12 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Show overall stats with photo and stylish text
 async def show_overall_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
+
+    # Fetch stats from MongoDB
+    stats_data = stats_collection.find_one({"_id": "bot_stats"})  # Assuming the stats are stored with this ID
+    if not stats_data:
+        stats_data = {"users": 0, "groups": 0, "blocked": 0}  # Default stats if no data found
+
     uptime = str(datetime.now() - start_time).split('.')[0]  # Get uptime in HH:MM:SS format
     photo_url = "https://graph.org/file/ae1108390e6dc4f7231cf-ce089431124e12e862.jpg"  # Replace with actual image URL or file path
 
