@@ -3,7 +3,6 @@ from telegram.ext import Application, CommandHandler, MessageHandler, filters, C
 from telegram.error import BadRequest
 from datetime import datetime
 import logging
-import asyncio
 import pymongo
 
 # Bot token and logger group ID
@@ -207,7 +206,7 @@ Made by @TSGCODER
 
 # Define your handler functions (start, ban_user, etc.)
 
-async def main():
+def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
     # Register your handlers
@@ -220,18 +219,8 @@ async def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, filter_messages))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, added_to_group))
 
-    # Initialize and run the bot
-    await app.initialize()  # Ensure this is awaited
-    await app.run_polling()
+    # Run the bot synchronously
+    app.run_polling()
 
-    # Shutdown handling
-    await app.shutdown()  # Ensure this is awaited
-
-# Check if the event loop is already running
 if __name__ == "__main__":
-    try:
-        asyncio.run(main())
-    except RuntimeError as e:
-        if "This event loop is already running" in str(e):
-            loop = asyncio.get_event_loop()
-            loop.create_task(main())
+    main()
