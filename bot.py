@@ -1,210 +1,230 @@
-from pyrogram import Client, filters
-from pymongo import MongoClient
-from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
-import re
-import time
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatPermissions
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
+from telegram.error import BadRequest
+from datetime import datetime
+import logging
+import asyncio
 
-# Bot Configuration
-API_ID = "24740695"
-API_HASH = "a95990848f2b93b8131a4a7491d97092"
-BOT_TOKEN = "7908847221:AAFo2YqgQ4jYG_Glbp96sINg79zF8T6EWoo"
-GROUP_ID = -1002100433415  # Replace with your group ID for notifications
-OWNER_USERNAME = "TSGCODER"  # Owner username
-OWNER_ID = 7877197608
+# Bot token and logger group ID
+BOT_TOKEN = "7718687925:AAHaKS11Trfc7nQztuM_uEmWWgzSBopZgBU"  # Replace with your bot token
+LOGGER_GROUP_ID = "-1002100433415"  # Replace with your logger group ID
+OWNER_ID = 7877197608  # Replace with your Telegram user ID (bot owner)
 
-# Initialize the bot
-app = Client("tsgame_bot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+# List of banned words
+BANNED_WORDS = ["madrchod", "randi", "randwi", "chutiya", "gaand", "gand", "lund", "lwda", "loda", "louda", "behnchod"]
 
-# MongoDB connection
-mongo_client = MongoClient("mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
-db = mongo_client["game_bot"]
-games_collection = db["games"]
-scores_collection = db["scores"]
-user_clicks_collection = db["user_clicks"]
-bets_collection = db["bets"]
+# Logging setup
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
-# Notify the group when the bot starts
-async def notify_group_on_start(client):
-    # Send a message to the group that the bot is online
-    await client.send_message(
-        chat_id=GROUP_ID,
-        text="🤖 **The bot is now online and ready to serve!**\n\n"
-             f"👨‍💻 **Owner:** @{OWNER_USERNAME}"
+# Welcome message
+WELCOME_PHOTO_URL = "https://graph.org/file/ae1108390e6dc4f7231cf-ce089431124e12e862.jpg"  # Replace with your photo URL
+WELCOME_CAPTION = """
+Welcome to the bot! 🌟
+1. This bot secures your group effectively.
+2. Automatically handles abusive behavior.
+3. Use /utag <msg> to tag everyone (Admins only).
+4. Keeps your group clean and spam-free.
+5. Built to enhance your group experience!
+"""
+
+# Track warnings
+USER_WARNINGS = {}
+
+# Start command
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    buttons = [
+        [InlineKeyboardButton("Owner", url="https://t.me/YOUR_USERNAME")],
+        [InlineKeyboardButton("Support Channel", url="https://t.me/YOUR_CHANNEL_LINK")],
+        [InlineKeyboardButton("Commands", callback_data="show_commands")],
+    ]
+    keyboard = InlineKeyboardMarkup(buttons)
+    await update.message.reply_photo(
+        photo=WELCOME_PHOTO_URL, caption=WELCOME_CAPTION, reply_markup=keyboard
     )
-    print("✅ Bot has started successfully!")  # Print message in console
+    # Log start to the logger group
+    await context.bot.send_message(
+        chat_id=LOGGER_GROUP_ID,
+        text=f"User @{update.effective_user.username} ({update.effective_user.id}) started the bot.",
+    )
 
+# Show commands inline
+async def show_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    commands_info = """
+Commands available:
+- /utag <msg>: Tag all group members (Admins only).
+- Secure group with banned word detection.
+- Warn and mute abusive users.
+- /ban <reply/username>: Ban a group member (Admins only).
+"""
+    await query.answer()
+    await query.edit_message_text(commands_info)
 
-# Welcome message with photo when a user starts the bot
-@app.on_message(filters.command("start") & filters.private)
-async def start_bot(client, message):
+# Handle group addition
+async def added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    added_by = update.effective_user.username
+    await context.bot.send_message(
+        chat_id=LOGGER_GROUP_ID,
+        text=f"Bot added to group '{update.effective_chat.title}' by @{added_by}.",
+    )
+    # Check for admin rights
+    try:
+        chat_member = await context.bot.get_chat_member(update.effective_chat.id, context.bot.id)
+        if chat_member.status != "administrator":
+            await update.effective_chat.send_message(
+                "Hey, I need admin rights to work properly. Please make me an admin!"
+            )
+    except Exception as e:
+        logger.error(e)
+
+# Ban words and abusive language handler
+async def filter_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    message = update.message
     user = message.from_user
-    username = f"@{user.username}" if user.username else user.first_name
-
-    # Photo URL (Replace with your desired image)
-    photo_url = "https://graph.org/file/ae1108390e6dc4f7231cf-ce089431124e12e862.jpg"
-
-    # Send the photo with the welcome message
-    await client.send_photo(
-        chat_id=message.chat.id,
-        photo=photo_url,
-        caption=(
-            f"🌟 **Welcome to the Game Bot, {username}!** 🌟\n\n"
-            "🎮 Explore exciting games, track your scores, and compete with others!\n\n"
-            f"👨‍💻 **Bot Owner:** @{OWNER_USERNAME}\n"
-            "Use `@tsgame` to view available games or type `/scores` to check your scores.\n"
-            "Get ready for some fun and challenges ahead!"
+    if any(banned_word in message.text.lower() for banned_word in BANNED_WORDS):
+        await message.delete()
+        await update.message.reply_text(
+            f"Message deleted! @{user.username}, using banned words is not allowed!"
         )
-    )
-
-    # Notify the group about the new user
-    notification = (
-        f"🆕 **New User Started the Bot** 🆕\n"
-        f"👤 Name: {user.first_name}\n"
-        f"🔗 Username: @{user.username if user.username else 'N/A'}\n"
-        f"🆔 User ID: `{user.id}`"
-    )
-    await client.send_message(chat_id=GROUP_ID, text=notification)
-
-
-# Add a game (Owner only)
-@app.on_message(filters.command("gameadd") & filters.user(OWNER_ID))
-async def add_game(client, message):
-    if len(message.command) < 3:
-        await message.reply("Usage: /gameadd <game_name> <game_link>")
-        return
-    game_name, game_link = message.command[1], message.command[2]
-    
-    # Check if the URL is valid
-    if not re.match(r'^https?://', game_link):
-        await message.reply("The game link is invalid. Please ensure the URL starts with http:// or https://.")
-        return
-    
-    games_collection.insert_one({"name": game_name, "link": game_link})
-    await message.reply(f"Game '{game_name}' added successfully!")
-
-
-# Show game list when @tsgame is typed (Inline Query Handler in both private and group)
-@app.on_message(filters.command("tsgame"))
-async def show_game_list(client, message):
-    # Fetch games from MongoDB
-    games = list(games_collection.find())
-
-    if not games:
-        await message.reply("🎮 **No games available yet!**")
-        return
-    
-    # Prepare the inline keyboard with game names
-    game_buttons = []
-    for game in games:
-        # Ensure the URL is valid before creating the button
-        if not re.match(r'^https?://', game["link"]):
-            continue  # Skip invalid URLs
-
-        game_buttons.append(InlineKeyboardButton(game["name"], url=game["link"]))
-    
-    if not game_buttons:
-        await message.reply("🎮 **No valid game links available!**")
         return
 
-    # Organize buttons in rows (3 buttons per row, adjust as needed)
-    keyboard = InlineKeyboardMarkup(
-        [game_buttons[i:i+3] for i in range(0, len(game_buttons), 3)]
-    )
+    # Warn user for abusive messages
+    if "abuse" in message.text.lower():
+        user_id = user.id
+        USER_WARNINGS[user_id] = USER_WARNINGS.get(user_id, 0) + 1
+        if USER_WARNINGS[user_id] >= 6:
+            try:
+                await context.bot.restrict_chat_member(
+                    update.effective_chat.id,
+                    user_id,
+                    ChatPermissions(can_send_messages=False),
+                    until_date=60,  # Mute for 2 minutes
+                )
+                await update.message.reply_text(
+                    f"@{user.username} has been muted for 2 minutes for repeated abusive behavior."
+                )
+            except BadRequest:
+                await update.message.reply_text("I need admin rights to mute members!")
+        else:
+            await update.message.reply_text(
+                f"Warning {USER_WARNINGS[user_id]}/6: @{user.username}, please stop abusive behavior!"
+            )
+        await message.delete()
 
-    # Reply with the game list to the user (both private and group)
-    await message.reply(
-        "🎮 **Choose a game to play**:",
+# Utag command for tagging members (Admins only)
+async def utag(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.get_member(update.effective_user.id).status in ("administrator", "creator"):
+        message = " ".join(context.args)
+        members = await context.bot.get_chat_administrators(update.effective_chat.id)
+        mentions = " ".join([f"@{member.user.username}" for member in members if member.user.username])
+        await update.message.reply_text(f"{message}\n{mentions}")
+    else:
+        await update.message.reply_text("Only admins can use this command!")
+
+# Ban command
+async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.get_member(update.effective_user.id).status not in ("administrator", "creator"):
+        await update.message.reply_text("Only admins can use the ban command!")
+        return
+
+    if update.message.reply_to_message:
+        target_user_id = update.message.reply_to_message.from_user.id
+    else:
+        try:
+            target_user_id = context.args[0]
+        except IndexError:
+            await update.message.reply_text("Please reply to a message or specify a username to ban.")
+            return
+
+    try:
+        await context.bot.ban_chat_member(update.effective_chat.id, target_user_id)
+        await update.message.reply_text("User has been banned successfully!")
+    except Exception as e:
+        await update.message.reply_text(f"Failed to ban user: {e}")
+
+# Broadcast command (Owner only)
+async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id != OWNER_ID:
+        await update.message.reply_text("Only the owner can use this command!")
+        return
+
+    message = update.message.reply_to_message
+    if not message:
+        await update.message.reply_text("Please reply to a message to broadcast!")
+        return
+
+    chats = context.application.chat_data.keys()
+    for chat_id in chats:
+        try:
+            await context.bot.send_message(chat_id=chat_id, text=message.text)
+        except Exception as e:
+            logger.warning(f"Failed to send message to {chat_id}: {e}")
+
+    # Track bot's uptime
+start_time = datetime.now()
+
+# Dummy stats data
+stats_data = {
+    "users": 1200,  # Dummy number of users
+    "groups": 50,   # Dummy number of groups
+    "blocked": 10,  # Dummy number of blocked users
+}
+
+# Stats command
+async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    buttons = [
+        [InlineKeyboardButton("Overall", callback_data="stats_overall")],
+        [InlineKeyboardButton("Back", callback_data="stats_back")],
+    ]
+    keyboard = InlineKeyboardMarkup(buttons)
+    await update.message.reply_text(
+        text="Statistics of the bot:\nSelect an option below:",
         reply_markup=keyboard
     )
 
+# Show overall stats
+async def show_overall_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    uptime = str(datetime.now() - start_time).split('.')[0]  # Get uptime in HH:MM:SS format
 
-# Track user click and store game link clicked
-@app.on_inline_query()
-async def handle_game_click(client, inline_query):
-    user_id = inline_query.from_user.id
-    game_link = inline_query.query
+    overall_stats = f"""
+    Users: {stats_data['users']}
+    Groups: {stats_data['groups']}
+    Uptime: {uptime}
+    Blocked: {stats_data['blocked']}
+    Made by @TSGCODER
+    """
 
-    # Record the game link clicked by the user
-    user_clicks_collection.insert_one({"user_id": user_id, "game_link": game_link, "timestamp": time.time()})
-    await inline_query.answer(
-        results=[],
-        cache_time=0
-    )
+    await query.answer()
+    await query.edit_message_text(overall_stats)
 
+# Back button functionality
+async def back_to_main_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await stats(update, context)
 
-# Log scores automatically (Simulate auto-tracking)
-@app.on_message(filters.regex(r"score: (\d+)") & filters.group)
-async def log_score(client, message):
-    score = int(message.matches[0].group(1))
-    user_id = message.from_user.id
-    username = message.from_user.username or message.from_user.first_name
-    game_name = "Example Game"  # Replace with dynamic game name based on context if possible
+# Main function to start the bot
+def main():
+    application = Application.builder().token(BOT_TOKEN).build()
 
-    # Check if the user clicked the link
-    click_data = user_clicks_collection.find_one({"user_id": user_id})
+    # Handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("utag", utag))
+    application.add_handler(CommandHandler("broadcast", broadcast))
+    application.add_handler(CommandHandler("ban", ban_user))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, filter_messages))
+    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, added_to_group))
+    application.add_handler(CallbackQueryHandler(show_commands, pattern="^show_commands$"))
+    application.add_handler(CommandHandler("stats", stats))
+    application.add_handler(CallbackQueryHandler(show_overall_stats, pattern="^stats_overall$"))
+    application.add_handler(CallbackQueryHandler(back_to_main_stats, pattern="^stats_back$"))
 
-    if click_data:
-        # If game clicked, log the score
-        scores_collection.insert_one({
-            "user_id": user_id,
-            "username": username,
-            "game_name": game_name,
-            "score": score
-        })
-        # Notify group of the score
-        await app.send_message(
-            chat_id=GROUP_ID,
-            text=f"🏆 **Game Over**: {username} scored {score} in {game_name} by clicking the game link!"
-        )
-        # Clear the click data after the game
-        user_clicks_collection.delete_one({"user_id": user_id})
-    else:
-        await message.reply("❌ **Game not started via the bot link, score not saved!**")
+    # Start the bot
+    application.run_polling()
 
-
-# Show leaderboard
-@app.on_message(filters.command("rank"))
-async def show_rank(client, message):
-    pipeline = [
-        {"$group": {"_id": "$user_id", "total_score": {"$sum": "$score"}, "username": {"$first": "$username"}}},
-        {"$sort": {"total_score": -1}},
-        {"$limit": 10},
-    ]
-    leaderboard = scores_collection.aggregate(pipeline)
-    reply_text = "🏆 **Top Players** 🏆\n\n"
-    for idx, user in enumerate(leaderboard, 1):
-        reply_text += f"{idx}. {user['username']} - {user['total_score']} points\n"
-    await message.reply(reply_text)
-
-
-# Show individual scores
-@app.on_message(filters.command("scores"))
-async def show_scores(client, message):
-    user_id = message.from_user.id
-    scores = scores_collection.find({"user_id": user_id})
-    reply_text = "🎮 **Your Scores** 🎮\n\n"
-    for score in scores:
-        reply_text += f"{score['game_name']} - {score['score']} points\n"
-    await message.reply(reply_text)
-
-
-# Command to delete a game (Only owner can use it)
-@app.on_message(filters.command("delgm") & filters.user(OWNER_ID))
-async def delete_game(client, message):
-    if len(message.command) < 3:
-        await message.reply("Usage: /delgm <game_name> <game_link>")
-        return
-    game_name, game_link = message.command[1], message.command[2]
-
-    # Find and delete the game by name and link
-    result = games_collection.delete_one({"name": game_name, "link": game_link})
-    
-    if result.deleted_count > 0:
-        await message.reply(f"Game '{game_name}' deleted successfully!")
-    else:
-        await message.reply("No such game found!")
-
-
-# Run the bot
 if __name__ == "__main__":
-    app.run(notify_group_on_start())
+    main()
