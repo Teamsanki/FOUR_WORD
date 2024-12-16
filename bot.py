@@ -205,12 +205,12 @@ Made by @TSGCODER
     except BadRequest as e:
         logger.error(f"Error editing stats message: {e}")
 
-# Existing code...
+# Define your handler functions (start, ban_user, etc.)
 
-# Main function to run the bot
 async def main():
     app = Application.builder().token(BOT_TOKEN).build()
 
+    # Register your handlers
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("ban", ban_user))
     app.add_handler(CommandHandler("utag", utag))
@@ -220,14 +220,18 @@ async def main():
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, filter_messages))
     app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, added_to_group))
 
+    # Initialize and run the bot
+    await app.initialize()  # Ensure this is awaited
     await app.run_polling()
 
-# Check if an event loop is already running
+    # Shutdown handling
+    await app.shutdown()  # Ensure this is awaited
+
+# Check if the event loop is already running
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except RuntimeError as e:
         if "This event loop is already running" in str(e):
-            # If the event loop is already running, use 'await' directly
             loop = asyncio.get_event_loop()
             loop.create_task(main())
