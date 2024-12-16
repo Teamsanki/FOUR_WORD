@@ -12,7 +12,7 @@ LOGGER_GROUP_ID = "-1002100433415"  # Replace with your logger group ID
 OWNER_ID = 7877197608  # Replace with your Telegram user ID (bot owner)
 
 # MongoDB connection URL
-MONGO_URL = "mongodb://localhost:27017"  # Replace with your MongoDB URL
+MONGO_URL = "mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"  # Replace with your MongoDB URL
 client = pymongo.MongoClient(MONGO_URL)
 db = client['bot_data']
 stats_collection = db['stats']
@@ -48,14 +48,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("Commands", callback_data="show_commands")],
     ]
     keyboard = InlineKeyboardMarkup(buttons)
-    await update.message.reply_photo(
-        photo=WELCOME_PHOTO_URL, caption=WELCOME_CAPTION, reply_markup=keyboard
-    )
-    # Log start to the logger group
-    await context.bot.send_message(
-        chat_id=LOGGER_GROUP_ID,
-        text=f"User @{update.effective_user.username} ({update.effective_user.id}) started the bot.",
-    )
+    try:
+        await update.message.reply_photo(
+            photo=WELCOME_PHOTO_URL, caption=WELCOME_CAPTION, reply_markup=keyboard
+        )
+        # Log start to the logger group
+        await context.bot.send_message(
+            chat_id=LOGGER_GROUP_ID,
+            text=f"User @{update.effective_user.username} ({update.effective_user.id}) started the bot.",
+        )
+    except BadRequest as e:
+        logger.error(f"Error sending message to logger group: {e}")
 
 # Show commands inline
 async def show_commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -67,23 +70,30 @@ Commands available:
 - Warn and mute abusive users.
 - /ban <reply/username>: Ban a group member (Admins only).
 """
-    await query.answer()
-    await query.edit_message_text(commands_info)
+    try:
+        await query.answer()
+        await query.edit_message_text(commands_info)
+    except BadRequest as e:
+        logger.error(f"Error editing message: {e}")
+        await query.answer("Sorry, I couldn't edit the message. Please try again later.")
 
 # Handle group addition
 async def added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     added_by = update.effective_user.username
-    await context.bot.send_message(
-        chat_id=LOGGER_GROUP_ID,
-        text=f"Bot added to group '{update.effective_chat.title}' by @{added_by}.",
-    )
-    # Log to MongoDB
-    db.stats.insert_one({
-        "event": "group_added",
-        "group_name": update.effective_chat.title,
-        "added_by": added_by,
-        "timestamp": datetime.now()
-    })
+    try:
+        await context.bot.send_message(
+            chat_id=LOGGER_GROUP_ID,
+            text=f"Bot added to group '{update.effective_chat.title}' by @{added_by}.",
+        )
+        # Log to MongoDB
+        db.stats.insert_one({
+            "event": "group_added",
+            "group_name": update.effective_chat.title,
+            "added_by": added_by,
+            "timestamp": datetime.now()
+        })
+    except BadRequest as e:
+        logger.error(f"Error sending message to logger group: {e}")
     # Check for admin rights
     try:
         chat_member = await context.bot.get_chat_member(update.effective_chat.id, context.bot.id)
@@ -175,7 +185,6 @@ async def stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def show_overall_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     uptime = str(datetime.now() - start_time).split('.')[0]  # Get uptime in HH:MM:SS format
-    # You can add a photo URL here if it's hosted online, or a file path if it's local.
     photo_url = "https://graph.org/file/ae1108390e6dc4f7231cf-ce089431124e12e862.jpg"  # Replace with actual image URL or file path
 
     overall_stats = f"""
@@ -186,73 +195,31 @@ async def show_overall_stats(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 Made by @TSGCODER
 """
-    await query.answer()
-    await query.edit_message_text(
-        overall_stats,
-        parse_mode="Markdown",  # Markdown styling
-    )
-    await query.message.reply_photo(photo_url)  # Sends the image with the stats
+    try:
+        await query.answer()
+        await query.edit_message_text(
+            overall_stats,
+            parse_mode="Markdown",  # Markdown styling
+        )
+        await query.edit_message_media(media=photo_url)
+    except BadRequest as e:
+        logger.error(f"Error editing stats message: {e}")
 
-# Back button functionality
-async def back_to_main_stats(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await stats(update, context)
+# Main function to run the bot
+async def main():
+    app = Application.builder().token(BOT_TOKEN).build()
 
-#Define the broadcast function
-async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Check if the user is the owner
-    if update.message.from_user.id != OWNER_ID:
-        await update.message.reply_text("You are not authorized to use this command.")
-        return
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("ban", ban_user))
+    app.add_handler(CommandHandler("utag", utag))
+    app.add_handler(CommandHandler("stats", stats))
+    app.add_handler(CallbackQueryHandler(show_commands, pattern="show_commands"))
+    app.add_handler(CallbackQueryHandler(show_overall_stats, pattern="stats_overall"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, filter_messages))
+    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, added_to_group))
 
-    # The message to be broadcasted
-    message = update.message
-
-    # Check the type of message (text, photo, video, etc.) and broadcast accordingly
-    if message.text:
-        # Broadcast text message
-        for user_id in get_all_user_ids():  # Replace with function to get all user IDs
-            try:
-                await context.bot.send_message(user_id, message.text, parse_mode=ParseMode.MARKDOWN)
-            except Exception as e:
-                print(f"Error sending message to {user_id}: {e}")
-    elif message.photo:
-        # Broadcast photo
-        for user_id in get_all_user_ids():  # Replace with function to get all user IDs
-            try:
-                await context.bot.send_photo(user_id, message.photo[-1].file_id)
-            except Exception as e:
-                print(f"Error sending photo to {user_id}: {e}")
-    elif message.video:
-        # Broadcast video
-        for user_id in get_all_user_ids():  # Replace with function to get all user IDs
-            try:
-                await context.bot.send_video(user_id, message.video.file_id)
-            except Exception as e:
-                print(f"Error sending video to {user_id}: {e}")
-    else:
-        await update.message.reply_text("Unsupported media type.")
-    await update.message.reply_text("Broadcast completed.")
-
-# Main function to start the bot
-def main():
-    application = Application.builder().token(BOT_TOKEN).build()
-
-    # Handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("utag", utag))
-    application.add_handler(CommandHandler("broadcast", broadcast))
-    application.add_handler(CommandHandler("ban", ban_user))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, filter_messages))
-    application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, added_to_group))
-    application.add_handler(CallbackQueryHandler(show_commands, pattern="^show_commands$"))
-    application.add_handler(CommandHandler("stats", stats))
-    application.add_handler(CallbackQueryHandler(show_overall_stats, pattern="^stats_overall$"))
-    application.add_handler(CallbackQueryHandler(back_to_main_stats, pattern="^stats_back$"))
-
-    # Start the bot
-    application.run_polling()
+    await app.run_polling()
 
 if __name__ == "__main__":
-    main()
+    start_time = datetime.now()  # Store the start time for uptime tracking
+    asyncio.run(main())
