@@ -178,6 +178,42 @@ async def back_to_main_stats(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await query.answer()
     await stats(update, context)
 
+Define the broadcast function
+async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Check if the user is the owner
+    if update.message.from_user.id != OWNER_ID:
+        await update.message.reply_text("You are not authorized to use this command.")
+        return
+
+    # The message to be broadcasted
+    message = update.message
+
+    # Check the type of message (text, photo, video, etc.) and broadcast accordingly
+    if message.text:
+        # Broadcast text message
+        for user_id in get_all_user_ids():  # Replace with function to get all user IDs
+            try:
+                await context.bot.send_message(user_id, message.text, parse_mode=ParseMode.MARKDOWN)
+            except Exception as e:
+                print(f"Error sending message to {user_id}: {e}")
+    elif message.photo:
+        # Broadcast photo
+        for user_id in get_all_user_ids():  # Replace with function to get all user IDs
+            try:
+                await context.bot.send_photo(user_id, message.photo[-1].file_id)
+            except Exception as e:
+                print(f"Error sending photo to {user_id}: {e}")
+    elif message.video:
+        # Broadcast video
+        for user_id in get_all_user_ids():  # Replace with function to get all user IDs
+            try:
+                await context.bot.send_video(user_id, message.video.file_id)
+            except Exception as e:
+                print(f"Error sending video to {user_id}: {e}")
+    else:
+        await update.message.reply_text("Unsupported media type.")
+    await update.message.reply_text("Broadcast completed.")
+
 # Main function to start the bot
 def main():
     application = Application.builder().token(BOT_TOKEN).build()
