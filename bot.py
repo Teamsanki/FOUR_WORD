@@ -205,6 +205,8 @@ Made by @TSGCODER
     except BadRequest as e:
         logger.error(f"Error editing stats message: {e}")
 
+# Existing code...
+
 # Main function to run the bot
 async def main():
     app = Application.builder().token(BOT_TOKEN).build()
@@ -220,6 +222,12 @@ async def main():
 
     await app.run_polling()
 
+# Check if an event loop is already running
 if __name__ == "__main__":
-    start_time = datetime.now()  # Store the start time for uptime tracking
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except RuntimeError as e:
+        if "This event loop is already running" in str(e):
+            # If the event loop is already running, use 'await' directly
+            loop = asyncio.get_event_loop()
+            loop.create_task(main())
