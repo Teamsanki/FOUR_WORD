@@ -178,7 +178,7 @@ async def back_to_main_stats(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await query.answer()
     await stats(update, context)
 
-Define the broadcast function
+#Define the broadcast function
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Check if the user is the owner
     if update.message.from_user.id != OWNER_ID:
