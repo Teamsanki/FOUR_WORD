@@ -162,12 +162,21 @@ async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Utag command for tagging members (Admins only)
 async def utag(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Check if the user is an admin or owner
     if update.effective_chat.get_member(update.effective_user.id).status in ("administrator", "creator"):
+        # Get the message sent with the command
         message = " ".join(context.args)
-        members = await context.bot.get_chat_administrators(update.effective_chat.id)
+        
+        # Get all the members of the group
+        members = await context.bot.get_chat_members(update.effective_chat.id)
+        
+        # Prepare the mentions
         mentions = " ".join([f"@{member.user.username}" for member in members if member.user.username])
+        
+        # Send the message with mentions
         await update.message.reply_text(f"{message}\n{mentions}")
     else:
+        # If user is not admin, send this message
         await update.message.reply_text("Only admins can use this command!")
 
 # Bot start time to calculate uptime
