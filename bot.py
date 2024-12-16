@@ -128,6 +128,27 @@ async def filter_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         await message.delete()
 
+# Ban command
+async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat.get_member(update.effective_user.id).status not in ("administrator", "creator"):
+        await update.message.reply_text("Only admins can use the ban command!")
+        return
+
+    if update.message.reply_to_message:
+        target_user_id = update.message.reply_to_message.from_user.id
+    else:
+        try:
+            target_user_id = context.args[0]
+        except IndexError:
+            await update.message.reply_text("Please reply to a message or specify a username to ban.")
+            return
+
+    try:
+        await context.bot.ban_chat_member(update.effective_chat.id, target_user_id)
+        await update.message.reply_text("User has been banned successfully!")
+    except Exception as e:
+        await update.message.reply_text(f"Failed to ban user: {e}")
+
 # Utag command for tagging members (Admins only)
 async def utag(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_chat.get_member(update.effective_user.id).status in ("administrator", "creator"):
