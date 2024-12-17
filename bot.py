@@ -15,7 +15,7 @@ LOGGER_GROUP = -1002100433415  # Replace with your Logger Group ID
 # Firebase Setup
 cred = credentials.Certificate("serviceAccountKey.json")
 firebase_admin.initialize_app(cred, {
-    "databaseURL": "https://your-database-name.firebaseio.com/"  # Replace with your Firebase DB URL
+    "databaseURL": "https://social-bite-skofficial-default-rtdb.firebaseio.com/"  # Replace with your Firebase DB URL
 })
 
 # Initialize Bot
