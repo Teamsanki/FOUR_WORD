@@ -9,7 +9,7 @@ import random
 # Telegram Bot Configuration
 API_ID = "27763335"  # Replace with your Telegram API ID
 API_HASH = "339bc57607286baa0d68a97a692329f0"  # Replace with your Telegram API Hash
-BOT_TOKEN = "YOUR_BOT_TOKEN"  # Replace with your Bot Token
+BOT_TOKEN = "7716244648:AAFDA0GMYOMIbZNOM4afWVgeK0WrLs4n3j8"  # Replace with your Bot Token
 LOGGER_GROUP = -1002100433415  # Replace with your Logger Group ID
 
 # Firebase Setup
