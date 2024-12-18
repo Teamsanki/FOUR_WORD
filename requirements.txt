@@ -1,3 +1,4 @@
-telebot==0.0.7
+pyTelegramBotAPI==4.10.0
 pymongo==4.2.0
 Pillow==9.4.0
+
