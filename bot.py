@@ -123,22 +123,41 @@ def generate_random_word(level):
     word = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=word_length))
     return word
 
+from PIL import ImageFont
+
 # Generate Word Image
 def generate_word_image(word):
-    # Create a simple PNG image with the word written on it
-    img = Image.new('RGB', (300, 100), color=(255, 255, 255))
-    d = ImageDraw.Draw(img)
-    font = ImageFont.load_default()
-    d.text((10, 40), word, fill=(0, 0, 0), font=font)
+    # Set the image size based on the word length (adjust as necessary)
+    image_width = 400
+    image_height = 150
     
-    # Ensure the 'assets' folder exists
+    # Create a white background image
+    img = Image.new('RGB', (image_width, image_height), color=(255, 255, 255))
+    d = ImageDraw.Draw(img)
+
+    # Load a font and set the font size
+    try:
+        font = ImageFont.truetype("arial.ttf", 60)  # Using a larger font size
+    except IOError:
+        font = ImageFont.load_default()  # Fallback to default font if custom font is unavailable
+    
+    # Calculate text size and position to center it
+    text_width, text_height = d.textsize(word, font=font)
+    text_x = (image_width - text_width) // 2  # Center horizontally
+    text_y = (image_height - text_height) // 2  # Center vertically
+    
+    # Add the text to the image
+    d.text((text_x, text_y), word, fill=(0, 0, 0), font=font)
+
+    # Ensure the 'assets' directory exists
     if not os.path.exists('assets'):
         os.makedirs('assets')
 
     # Save the image with the word as the filename
-    file_path = f"assets/{word}.png"  # Using the word as the filename
+    file_path = f"assets/{sanki}.png"  # Using the word as the filename
     img.save(file_path)
     return file_path
+
 
 
 # Handle user response and scoring
