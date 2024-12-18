@@ -50,7 +50,8 @@ def start(message):
 # Leaderboard Command
 @bot.message_handler(commands=['leaderboard'])
 def leaderboard(message):
-    users = list(users_collection.find().sort("score", -1).limit(10))
+    # Get top 5 players from the database
+    users = list(users_collection.find().sort("score", -1).limit(5))
     if not users:
         bot.reply_to(message, "Leaderboard is empty!")
         return
@@ -94,19 +95,22 @@ def play(message):
 
 def start_game(player1, player2):
     level = 1
-    time_limit = 30
+    time_limit = 10  # Starting with 10 seconds for each word
     active_games[player1['user_id']] = {'level': level, 'score': 0, 'time': time.time()}
     active_games[player2['user_id']] = {'level': level, 'score': 0, 'time': time.time()}
 
+    # Generate the word once for both players
+    word = generate_random_word(level)
+
     def send_word(player):
-        word = generate_random_word(level)  # Generate random word based on level
-        bot.send_message(player, f"Level {level} - Type this word as fast as you can: {word}")
+        bot.send_message(player, f"Level {level} - You have {time_limit} seconds to type this word: {word}")
         start_time = time.time()
 
         def timeout():
             if time.time() - start_time >= time_limit:
-                disqualify(player, opponent, "Time limit exceeded!")
+                disqualify(player, "Time limit exceeded!")
 
+        # Pass the player to the timeout function
         Timer(time_limit, timeout).start()
 
     send_word(player1['user_id'])
@@ -129,6 +133,10 @@ def handle_response(message):
     current_level = game['level']
     word = generate_random_word(current_level)  # Generate the correct word for the current level
 
+    # Notify the player about the level time limit
+    if current_level >= 5:
+        bot.send_message(user_id, "⚠️ Warning: Real game begins after Level 5. Type fast, or you’ll be disqualified!")
+
     if message.text.strip().lower() != word.lower():
         # Incorrect word penalty
         new_score = max(0, game['score'] - 5)
@@ -141,7 +149,7 @@ def handle_response(message):
 
         bot.send_message(user_id, f"Correct! You are now on level {game['level']} with score: {game['score']}.")
 
-        # Check if player completed the level
+        # Check if player completed the level and has reached level 5
         if game['level'] >= 5:
             opponent = get_opponent(user_id)
             declare_winner(user_id, opponent)
@@ -150,10 +158,11 @@ def get_opponent(user_id):
     # Logic to find the opponent (you can define based on your system)
     pass
 
-def disqualify(player, opponent, reason):
+def disqualify(player, reason):
     # Logic to disqualify a player for not completing in time or wrong word
     bot.send_message(player, f"Disqualified! {reason}. You lost the game.")
-    bot.send_message(opponent, f"Congratulations! {player} was disqualified. You win!")
+    # You can also proceed to the next level with 0 score
+    bot.send_message(player, "Next time, try to type faster! You are moved to the next level with 0 score.")
     # Update scores and game database
     pass
 
@@ -163,16 +172,35 @@ def declare_winner(winner_id, loser_id):
 
     # Update scores
     users_collection.update_one({"user_id": winner_id}, {"$inc": {"score": 10 * winner['level']}})
-    bot.send_message(winner_id, f"Congrats! You won the game!")
-    bot.send_message(loser_id, f"Sorry, you lost this game. Better luck next time!")
+    
+    # Send winning message to the winner
+    bot.send_message(winner_id, f"🎉 Congrats! You won the game! Your current score: {winner['score']}")
+    
+    # Send losing message to the loser
+    bot.send_message(loser_id, f"😞 Sorry, you lost this game. Better luck next time!")
 
-    # Log the game
+    # Log the game in the database
     games_collection.insert_one({
         "player1": winner_id,
         "player2": loser_id,
         "winner": winner_id,
         "timestamp": datetime.utcnow()
     })
+    
+    # Update the leaderboard (Top 5 players)
+    update_leaderboard()
 
-# Polling
+def update_leaderboard():
+    # Fetch the top 5 players
+    top_users = list(users_collection.find().sort("score", -1).limit(5))
+    leaderboard_text = "🏆 Updated Leaderboard 🏆\n\n"
+    
+    # Prepare the leaderboard text
+    for i, user in enumerate(top_users, 1):
+        leaderboard_text += f"{i}. @{user['username']} - {user['score']} points\n"
+    
+    # Send the updated leaderboard to a log group or any specific group if needed
+    bot.send_message(LOGGER_GROUP_ID, leaderboard_text)
+
+# Polling 
 bot.polling()
