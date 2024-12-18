@@ -139,9 +139,10 @@ def generate_word_image(word):
     d = ImageDraw.Draw(img)
 
     try:
-    font = ImageFont.truetype("arial.ttf", font_size)
-except IOError:
-    font = ImageFont.load_default()  # Use default font if the custom one isn't found
+        font_size = min(100, image_size // len(word))  # Dynamic font size based on word length
+        font = ImageFont.truetype("arial.ttf", font_size)  # Adjust font size
+    except IOError:
+        font = ImageFont.load_default()  # Use default font if the custom one isn't found
 
     # Get text size and position to center the word
     bbox = d.textbbox((0, 0), word, font=font)  # Bounding box returns 4 values: (left, top, right, bottom)
@@ -158,6 +159,7 @@ except IOError:
     file_path = f"assets/{word}.png"
     img.save(file_path)
     return file_path
+
 
 # Handle User Responses
 @bot.message_handler(func=lambda message: message.text is not None)
