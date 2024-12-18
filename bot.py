@@ -169,16 +169,19 @@ def handle_response(message):
     
     game = active_games[user_id]
     current_level = game['level']
-    word = game['word']  # Get the word from the current game state
+    word = game['word'].strip().lower()  # Strip and convert the word to lowercase
 
-    # Handle correct/incorrect response
-    if message.text.strip().lower() != word.lower():
+    # Handle user input
+    user_input = message.text.strip().lower()  # Strip and convert user input to lowercase
+
+    # Check if the user input is correct
+    if user_input != word:
         # Incorrect word penalty
         new_score = max(0, game['score'] - 5)
         active_games[user_id]['score'] = new_score
         bot.send_message(user_id, f"Incorrect word! Your score has been reduced by 5 points. Current score: {new_score}")
     else:
-        # Correct word, increase level
+        # Correct word, increase level and score
         active_games[user_id]['level'] += 1
         game['score'] += current_level * 10  # Score based on level
 
