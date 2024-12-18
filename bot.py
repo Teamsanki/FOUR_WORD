@@ -101,6 +101,7 @@ def play(message):
 
 # Start Game
 def start_game(player1_id, player2_id):
+def start_game(player1_id, player2_id):
     word = generate_random_word()
     game_data = {
         'level': 1,
@@ -111,9 +112,16 @@ def start_game(player1_id, player2_id):
     }
     active_games[(player1_id, player2_id)] = game_data
 
+    # Inform players about their opponent
+    player1_name = bot.get_chat_member(player1_id, player1_id).user.username
+    player2_name = bot.get_chat_member(player2_id, player2_id).user.username
+    bot.send_message(player1_id, f"Your opponent is @{player2_name}. Get ready to type the word!")
+    bot.send_message(player2_id, f"Your opponent is @{player1_name}. Get ready to type the word!")
+
     image_file = generate_word_image(word)
     bot.send_photo(player1_id, photo=open(image_file, 'rb'), caption="Type the word fast!")
     bot.send_photo(player2_id, photo=open(image_file, 'rb'), caption="Type the word fast!")
+
 
 # Generate Random Word
 def generate_random_word():
@@ -121,20 +129,29 @@ def generate_random_word():
     return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=word_length))
 
 # Generate Word Image
+# Generate Word Image
 def generate_word_image(word):
     image_size = 400
     img = Image.new('RGB', (image_size, image_size), color=(255, 255, 255))
     d = ImageDraw.Draw(img)
 
     try:
-        font = ImageFont.truetype("arial.ttf", 40)
+        font = ImageFont.truetype("arial.ttf", 50)  # Increased font size
     except IOError:
         font = ImageFont.load_default()
 
-    text_width, text_height = d.textsize(word, font=font)
-    text_x = (image_size - text_width) // 20
-    text_y = (image_size - text_height) // 20
+    text_width, text_height = d.textbbox((0, 0), word, font=font)
+    text_x = (image_size - text_width) // 2  # Centering text
+    text_y = (image_size - text_height) // 2
     d.text((text_x, text_y), word, fill=(0, 0, 0), font=font)
+
+    # Adding Watermark: "Team Sanki"
+    watermark_font = ImageFont.truetype("arial.ttf", 20)
+    watermark_text = "Team Sanki"
+    watermark_width, watermark_height = d.textbbox((0, 0), watermark_text, font=watermark_font)
+    watermark_x = (image_size - watermark_width) // 2
+    watermark_y = image_size - watermark_height - 10
+    d.text((watermark_x, watermark_y), watermark_text, fill=(150, 150, 150), font=watermark_font)
 
     if not os.path.exists('assets'):
         os.makedirs('assets')
@@ -144,7 +161,7 @@ def generate_word_image(word):
     return file_path
 
 # Handle User Responses
-@bot.message_handler(func=lambda message: True)
+# Handle User Responses with Timer
 def handle_response(message):
     user_id = message.from_user.id
     matched_game = None
@@ -162,14 +179,20 @@ def handle_response(message):
     word = game_data['word'].strip().lower()
     user_input = message.text.strip().lower()
 
-    if user_input == word:
-        update_game_progress(user_id, matched_game)
-    else:
-        game_data['lifelines'][user_id] -= 1
-        if game_data['lifelines'][user_id] <= 0:
-            declare_winner(matched_game, loser_id=user_id)
-        else:
-            bot.send_message(user_id, f"Incorrect! Remaining lifelines: {game_data['lifelines'][user_id]}")
+    # 15-second timer for before level 5
+    if game_data['level'] < 5:
+        start_time = time.time()
+        # Wait for response within the time limit
+        while time.time() - start_time < 15:
+            if user_input == word:
+                update_game_progress(user_id, matched_game)
+                return
+        # If time is up and no correct input
+        if time.time() - start_time >= 15 and user_input != word:
+            game_data['lifelines'][user_id] -= 1
+            bot.send_message(user_id, f"Time's up! You have {game_data['lifelines'][user_id]} lifelines left.")
+            if game_data['lifelines'][user_id] <= 0:
+                declare_winner(matched_game, loser_id=user_id)
 
 # Game Progression Logic
 def update_game_progress(user_id, matched_game):
@@ -178,20 +201,16 @@ def update_game_progress(user_id, matched_game):
     current_level = game_data['level']
     opponent_id = [player for player in matched_game if player != user_id][0]
 
-    # Update the score
-    if game_data['scores'][user_id] == 0:
-        # First correct responder gets full points
-        points = 50 + (current_level - 1) * 10  # Score increases with level
-        game_data['scores'][user_id] += points
-        bot.send_message(user_id, f"Correct! 🎉 You earned {points} points.")
+    # Calculate score
+    points = 50 + (current_level - 1) * 10
+    game_data['scores'][user_id] += points
 
-        # Second player gets half points
-        if game_data['scores'][opponent_id] == 0:
-            game_data['scores'][opponent_id] += points // 2
-            bot.send_message(opponent_id, f"Your opponent was faster! You earned {points // 2} points.")
+    # Inform players about points
+    bot.send_message(user_id, f"Correct! 🎉 You earned {points} points this round.")
+    bot.send_message(opponent_id, f"Your opponent was faster! You earned {points // 2} points.")
 
-    # Move to the next level
-    if current_level < MAX_LEVEL or (current_level > MAX_LEVEL and (current_level - MAX_LEVEL) % BONUS_LEVEL_INTERVAL != 0):
+    # Move to next level
+    if current_level < MAX_LEVEL:
         game_data['level'] += 1
         new_word = generate_random_word()
         game_data['word'] = new_word
@@ -200,19 +219,29 @@ def update_game_progress(user_id, matched_game):
         bot.send_photo(user_id, photo=open(image_file, 'rb'), caption=f"Level {game_data['level']}: Type the word fast!")
         bot.send_photo(opponent_id, photo=open(image_file, 'rb'), caption=f"Level {game_data['level']}: Type the word fast!")
     else:
-        # Bonus Level
-        bonus_points = BONUS_POINTS + (game_data['level'] - MAX_LEVEL) * 50
-        game_data['scores'][user_id] += bonus_points
-        bot.send_message(user_id, f"🎉 Bonus Level! You earned {bonus_points} points!")
-        bot.send_message(opponent_id, f"🎉 Bonus Level! You earned {bonus_points // 2} points!")
+        start_post_level_5_game(user_id, opponent_id)
 
-        game_data['level'] += 1
-        new_word = generate_random_word()
-        game_data['word'] = new_word
-        image_file = generate_word_image(new_word)
+# Rest after Level 5
+def start_post_level_5_game(player1_id, player2_id):
+    bot.send_message(player1_id, "10 seconds rest... the real game will begin shortly!")
+    bot.send_message(player2_id, "10 seconds rest... the real game will begin shortly!")
+    
+    time.sleep(10)  # 10-second rest
+    
+    bot.send_message(player1_id, "The game is now starting! You have 30 seconds to type the word. You have 3 lifelines.")
+    bot.send_message(player2_id, "The game is now starting! You have 30 seconds to type the word. You have 3 lifelines.")
 
-        bot.send_photo(user_id, photo=open(image_file, 'rb'), caption=f"Next Level {game_data['level']}: Type the word fast!")
-        bot.send_photo(opponent_id, photo=open(image_file, 'rb'), caption=f"Next Level {game_data['level']}: Type the word fast!")
+    # Set new timer for real game
+    start_real_game(player1_id, player2_id)
+
+def start_real_game(player1_id, player2_id):
+    word = generate_random_word()
+    game_data = active_games[(player1_id, player2_id)]
+    game_data['word'] = word  # Reset word for new round
+    image_file = generate_word_image(word)
+    
+    bot.send_photo(player1_id, photo=open(image_file, 'rb'), caption="Real game starts! Type the word fast!")
+    bot.send_photo(player2_id, photo=open(image_file, 'rb'), caption="Real game starts! Type the word fast!")
 
 
 # Declare Winner
