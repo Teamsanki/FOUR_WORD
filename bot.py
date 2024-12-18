@@ -155,7 +155,8 @@ def generate_word_image(word):
     img.save(file_path)
     return file_path
 
-# Handle User Responses with Timer
+# Handle User Responses
+@bot.message_handler(func=lambda message: message.text is not None)
 def handle_response(message):
     user_id = message.from_user.id
     matched_game = None
@@ -167,7 +168,7 @@ def handle_response(message):
             break
 
     if not matched_game:
-        return
+        return  # Not part of any active game
     
     game_data = active_games[matched_game]
     word = game_data['word'].strip().lower()
