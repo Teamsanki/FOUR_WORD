@@ -1,4 +1,4 @@
-import telebot
+from telebot import TeleBot
 import time
 import random
 from threading import Timer
@@ -12,7 +12,7 @@ BOT_TOKEN = "7396395072:AAG-B-zKxB8LFoKGwf0sbzwropNq-OlxFKk"
 MONGO_URL = "mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 LOGGER_GROUP_ID = "-1002100433415"
 
-bot = telebot.TeleBot(BOT_TOKEN)
+bot = TeleBot(BOT_TOKEN)
 
 # MongoDB Setup
 client = MongoClient(MONGO_URL)
@@ -121,14 +121,12 @@ def start_game(player1_id, player2_id):
     bot.send_photo(player1_id, photo=open(image_file, 'rb'), caption="Type the word fast!")
     bot.send_photo(player2_id, photo=open(image_file, 'rb'), caption="Type the word fast!")
 
-
 # Generate Random Word
 def generate_random_word():
     word_length = random.randint(4, 8)
     return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=word_length))
 
 # Generate Word Image
-# Fix the error in the `generate_word_image` function
 def generate_word_image(word):
     image_size = 400
     img = Image.new('RGB', (image_size, image_size), color=(255, 255, 255))
@@ -139,24 +137,20 @@ def generate_word_image(word):
     except IOError:
         font = ImageFont.load_default()
 
-    # Corrected line to calculate text bounding box
-    bbox = d.textbbox((0, 0), word, font=font)
-    text_width = bbox[2] - bbox[0]  # right - left
-    text_height = bbox[3] - bbox[1]  # bottom - top
+    # Use textbbox to get bounding box and compute width/height
+    x_min, y_min, x_max, y_max = d.textbbox((0, 0), word, font=font)
+    text_width = x_max - x_min
+    text_height = y_max - y_min
     
-    # Center the text
-    text_x = (image_size - text_width) // 2
+    text_x = (image_size - text_width) // 2  # Centering text
     text_y = (image_size - text_height) // 2
     d.text((text_x, text_y), word, fill=(0, 0, 0), font=font)
 
     # Adding Watermark: "Team Sanki"
     watermark_font = ImageFont.truetype("arial.ttf", 20)
     watermark_text = "Team Sanki"
-    watermark_bbox = d.textbbox((0, 0), watermark_text, font=watermark_font)
-    watermark_width = watermark_bbox[2] - watermark_bbox[0]
-    watermark_height = watermark_bbox[3] - watermark_bbox[1]
-    watermark_x = (image_size - watermark_width) // 2
-    watermark_y = image_size - watermark_height - 10
+    watermark_x = (image_size - watermark_font.getsize(watermark_text)[0]) // 2
+    watermark_y = image_size - watermark_font.getsize(watermark_text)[1] - 10
     d.text((watermark_x, watermark_y), watermark_text, fill=(150, 150, 150), font=watermark_font)
 
     if not os.path.exists('assets'):
@@ -165,7 +159,6 @@ def generate_word_image(word):
     file_path = f"assets/{word}.png"
     img.save(file_path)
     return file_path
-
 
 # Handle User Responses
 # Handle User Responses with Timer
@@ -249,7 +242,6 @@ def start_real_game(player1_id, player2_id):
     
     bot.send_photo(player1_id, photo=open(image_file, 'rb'), caption="Real game starts! Type the word fast!")
     bot.send_photo(player2_id, photo=open(image_file, 'rb'), caption="Real game starts! Type the word fast!")
-
 
 # Declare Winner
 def declare_winner(matched_game, loser_id):
