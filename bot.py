@@ -36,7 +36,7 @@ def start(message):
     # Welcome message
     bot.send_photo(
         message.chat.id,
-        photo="https://example.com/welcome.jpg",  # Replace with your photo URL
+        photo="https://graph.org/file/ae1108390e6dc4f7231cf-ce089431124e12e862.jpg",  # Replace with your photo URL
         caption=f"Welcome {message.from_user.first_name}! 🎮\n"
                 "Use /leaderboard to check rankings and /play to start a game."
     )
