@@ -6,9 +6,9 @@ from pymongo import MongoClient
 from datetime import datetime
 
 # Bot Token and MongoDB URL
-BOT_TOKEN = "YOUR_BOT_TOKEN"
-MONGO_URL = "YOUR_MONGO_URL"
-LOGGER_GROUP_ID = "YOUR_LOGGER_GROUP_ID"
+BOT_TOKEN = "7396395072:AAG-B-zKxB8LFoKGwf0sbzwropNq-OlxFKk"
+MONGO_URL = "mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+LOGGER_GROUP_ID = "-1002100433415"
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
