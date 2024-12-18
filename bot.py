@@ -23,11 +23,6 @@ queue = []  # Queue of players waiting for a match
 active_games = {}  # Tracking active games
 uptime = time.time()
 
-# Word List (A to Z words, you can expand this list as needed)
-word_list = ["apple", "banana", "cherry", "date", "elderberry", "fig", "grape", "honeydew", "kiwi", "lemon",
-             "mango", "nectarine", "orange", "pear", "quince", "raspberry", "strawberry", "tangerine", "ugli",
-             "violet", "watermelon", "xenon", "yam", "zucchini"]
-
 # Start Command
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -104,7 +99,7 @@ def start_game(player1, player2):
     active_games[player2['user_id']] = {'level': level, 'score': 0, 'time': time.time()}
 
     def send_word(player):
-        word = random.choice(word_list[:level])  # Difficulty increases with level
+        word = generate_random_word(level)  # Generate random word based on level
         bot.send_message(player, f"Level {level} - Type this word as fast as you can: {word}")
         start_time = time.time()
 
@@ -117,6 +112,12 @@ def start_game(player1, player2):
     send_word(player1['user_id'])
     send_word(player2['user_id'])
 
+# Generate Random Word (A to Z)
+def generate_random_word(level):
+    word_length = level + 3  # Length of the word increases as the level increases
+    word = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=word_length))
+    return word
+
 # Handle user response and scoring
 @bot.message_handler(func=lambda message: True)
 def handle_response(message):
@@ -126,7 +127,7 @@ def handle_response(message):
     
     game = active_games[user_id]
     current_level = game['level']
-    word = random.choice(word_list[:current_level])  # Use the correct word for current level
+    word = generate_random_word(current_level)  # Generate the correct word for the current level
 
     if message.text.strip().lower() != word.lower():
         # Incorrect word penalty
