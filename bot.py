@@ -154,7 +154,7 @@ def generate_word_image(word):
         os.makedirs('assets')
 
     # Save the image with the word as the filename
-    file_path = f"assets/{sanki}.png"  # Using the word as the filename
+    file_path = f"assets/{word}.png"  # Using the word as the filename
     img.save(file_path)
     return file_path
 
