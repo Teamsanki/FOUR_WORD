@@ -1,111 +1,177 @@
-import pyrogram
-from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-import firebase_admin
-from firebase_admin import credentials, db
-import asyncio
+import telebot
+import time
 import random
+from threading import Timer
+from pymongo import MongoClient
+from datetime import datetime
 
-# Telegram Bot Configuration
-API_ID = "27763335"  # Replace with your Telegram API ID
-API_HASH = "339bc57607286baa0d68a97a692329f0"  # Replace with your Telegram API Hash
-BOT_TOKEN = "7716244648:AAFDA0GMYOMIbZNOM4afWVgeK0WrLs4n3j8"  # Replace with your Bot Token
-LOGGER_GROUP = -1002100433415  # Replace with your Logger Group ID
+# Bot Token and MongoDB URL
+BOT_TOKEN = "YOUR_BOT_TOKEN"
+MONGO_URL = "YOUR_MONGO_URL"
+LOGGER_GROUP_ID = "YOUR_LOGGER_GROUP_ID"
 
-# Firebase Setup
-cred = credentials.Certificate("serviceAccountKey.json")
-firebase_admin.initialize_app(cred, {
-    "databaseURL": "https://social-bite-skofficial-default-rtdb.firebaseio.com/"  # Replace with your Firebase DB URL
-})
+bot = telebot.TeleBot(BOT_TOKEN)
 
-# Initialize Bot
-app = Client("SuhaniBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+# MongoDB Setup
+client = MongoClient(MONGO_URL)
+db = client['game_bot']
+users_collection = db['users']
+games_collection = db['games']
 
-# Photo (Replace this with your welcome photo URL or local path)
-WELCOME_PHOTO = "https://example.com/welcome-photo.jpg"  # Replace with the actual photo link
+# Game Variables
+queue = []  # Queue of players waiting for a match
+active_games = {}  # Tracking active games
+uptime = time.time()
 
-# Stylish Welcome Message (5 Lines)
-WELCOME_MESSAGE = """
-🌟 **Suhani Bot** 🌟
-
-👤 **Welcome, {user_mention}**
-
-🚀 Powered by Team SANKI Network  
-💻 Innovated by the Best Minds  
-✨ Experience Beyond Imagination  
-"""
-
-# Inline Buttons
-WELCOME_BUTTONS = InlineKeyboardMarkup(
-    [
-        [InlineKeyboardButton("👑 Owner", url="https://t.me/TSGCODER"),  # Replace with Owner link
-         InlineKeyboardButton("🛠 Support Channel", url="https://t.me/Teamsankinetworkk")]  # Replace with Support link
-    ]
-)
+# Word List (A to Z words, you can expand this list as needed)
+word_list = ["apple", "banana", "cherry", "date", "elderberry", "fig", "grape", "honeydew", "kiwi", "lemon",
+             "mango", "nectarine", "orange", "pear", "quince", "raspberry", "strawberry", "tangerine", "ugli",
+             "violet", "watermelon", "xenon", "yam", "zucchini"]
 
 # Start Command
-@app.on_message(filters.command("start") & filters.private)
-async def start(bot, message: Message):
-    user_mention = message.from_user.mention(style="md")
-
-    # Animation Texts
-    animation_texts = [
-        "👋 **Initializing Suhani Bot...**",
-        "🚀 **Loading Systems...**",
-        "🔧 **Connecting to Team SANKI's Network...**",
-        "💖 **Almost Ready...**",
-    ]
-    for anim_text in animation_texts:
-        await message.reply(anim_text)
-        await asyncio.sleep(1.5)
-
-    # Final Welcome Photo with Caption and Inline Buttons
-    await message.reply_photo(
-        photo=WELCOME_PHOTO,
-        caption=WELCOME_MESSAGE.format(user_mention=user_mention),
-        reply_markup=WELCOME_BUTTONS
+@bot.message_handler(commands=['start'])
+def start(message):
+    user_id = message.from_user.id
+    username = message.from_user.username or "Unknown"
+    
+    # Add user to the database if not exists
+    if not users_collection.find_one({"user_id": user_id}):
+        users_collection.insert_one({"user_id": user_id, "username": username, "score": 0})
+    
+    # Welcome message
+    bot.send_photo(
+        message.chat.id,
+        photo="https://example.com/welcome.jpg",  # Replace with your photo URL
+        caption=f"Welcome {message.from_user.first_name}! 🎮\n"
+                "Use /leaderboard to check rankings and /play to start a game."
+    )
+    
+    # Log the user start
+    bot.send_message(
+        LOGGER_GROUP_ID,
+        f"User @{username} (ID: {user_id}) has started the bot."
     )
 
-    # Log to Logger Group
-    log_message = f"🟢 **New Start Alert** 🟢\n\n👤 **User:** [{message.from_user.first_name}](tg://user?id={message.from_user.id})\n🆔 **User ID:** `{message.from_user.id}`"
-    await bot.send_message(LOGGER_GROUP, log_message)
+# Leaderboard Command
+@bot.message_handler(commands=['leaderboard'])
+def leaderboard(message):
+    users = list(users_collection.find().sort("score", -1).limit(10))
+    if not users:
+        bot.reply_to(message, "Leaderboard is empty!")
+        return
 
-# Save Messages to Firebase
-@app.on_message(filters.group & ~filters.bot)
-async def save_group_messages(bot, message: Message):
-    group_id = str(message.chat.id)
-    user_name = message.from_user.first_name
-    user_id = str(message.from_user.id)
-    text = message.text or "Non-text message"
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    leaderboard_text = "🏆 Leaderboard 🏆\n\n"
+    for i, user in enumerate(users, 1):
+        leaderboard_text += f"{i}. @{user['username']} - {user['score']} points\n"
+    
+    bot.reply_to(message, leaderboard_text)
 
-    ref = db.reference(f"SANKI/{group_id}")
-    message_data = {
-        "user_name": user_name,
-        "user_id": user_id,
-        "text": text,
-        "timestamp": timestamp
-    }
-    ref.push(message_data)
+# Ping Command
+@bot.message_handler(commands=['ping'])
+def ping(message):
+    current_uptime = time.time() - uptime
+    uptime_text = time.strftime("%H:%M:%S", time.gmtime(current_uptime))
+    bot.reply_to(message, f"Pong! 🏓\nUptime: {uptime_text}")
 
-# Typing Status and Random Response
-@app.on_message(filters.group & ~filters.bot)
-async def reply_random(bot, message: Message):
-    group_id = str(message.chat.id)
-    ref = db.reference(f"SANKI/{group_id}")
-    messages = ref.get()
+# Typing Game Play Command
+@bot.message_handler(commands=['play'])
+def play(message):
+    user_id = message.from_user.id
+    username = message.from_user.username or "Unknown"
 
-    # Show Typing Status
-    await bot.send_chat_action(message.chat.id, "typing")
-    await asyncio.sleep(1.5)  # Simulate typing time
+    # Add user to the queue
+    if user_id in queue:
+        bot.reply_to(message, "You are already in the queue. Please wait for a match!")
+        return
+    
+    queue.append(user_id)
+    bot.reply_to(message, "You have been added to the queue. Waiting for an opponent...")
 
-    # Respond Randomly from Firebase
-    if messages:
-        random_message = random.choice(list(messages.values()))["text"]
-        await message.reply(f"🤖: {random_message}")
+    # Check if two players are in the queue
+    if len(queue) >= 2:
+        player1_id = queue.pop(0)
+        player2_id = queue.pop(0)
+        
+        player1 = users_collection.find_one({"user_id": player1_id})
+        player2 = users_collection.find_one({"user_id": player2_id})
+
+        start_game(player1, player2)
+
+def start_game(player1, player2):
+    level = 1
+    time_limit = 30
+    active_games[player1['user_id']] = {'level': level, 'score': 0, 'time': time.time()}
+    active_games[player2['user_id']] = {'level': level, 'score': 0, 'time': time.time()}
+
+    def send_word(player):
+        word = random.choice(word_list[:level])  # Difficulty increases with level
+        bot.send_message(player, f"Level {level} - Type this word as fast as you can: {word}")
+        start_time = time.time()
+
+        def timeout():
+            if time.time() - start_time >= time_limit:
+                disqualify(player, opponent, "Time limit exceeded!")
+
+        Timer(time_limit, timeout).start()
+
+    send_word(player1['user_id'])
+    send_word(player2['user_id'])
+
+# Handle user response and scoring
+@bot.message_handler(func=lambda message: True)
+def handle_response(message):
+    user_id = message.from_user.id
+    if user_id not in active_games:
+        return
+    
+    game = active_games[user_id]
+    current_level = game['level']
+    word = random.choice(word_list[:current_level])  # Use the correct word for current level
+
+    if message.text.strip().lower() != word.lower():
+        # Incorrect word penalty
+        new_score = max(0, game['score'] - 5)
+        active_games[user_id]['score'] = new_score
+        bot.send_message(user_id, f"Incorrect word! Your score has been reduced by 5 points. Current score: {new_score}")
     else:
-        await message.reply("🤖: Sorry, no messages available to reply right now!")
+        # Correct word, increase level
+        active_games[user_id]['level'] += 1
+        game['score'] += current_level * 10  # Score based on level
 
-# Run the Bot
-print("Suhani Bot Started! 🚀")
-app.run()
+        bot.send_message(user_id, f"Correct! You are now on level {game['level']} with score: {game['score']}.")
+
+        # Check if player completed the level
+        if game['level'] >= 5:
+            opponent = get_opponent(user_id)
+            declare_winner(user_id, opponent)
+
+def get_opponent(user_id):
+    # Logic to find the opponent (you can define based on your system)
+    pass
+
+def disqualify(player, opponent, reason):
+    # Logic to disqualify a player for not completing in time or wrong word
+    bot.send_message(player, f"Disqualified! {reason}. You lost the game.")
+    bot.send_message(opponent, f"Congratulations! {player} was disqualified. You win!")
+    # Update scores and game database
+    pass
+
+def declare_winner(winner_id, loser_id):
+    winner = users_collection.find_one({"user_id": winner_id})
+    loser = users_collection.find_one({"user_id": loser_id})
+
+    # Update scores
+    users_collection.update_one({"user_id": winner_id}, {"$inc": {"score": 10 * winner['level']}})
+    bot.send_message(winner_id, f"Congrats! You won the game!")
+    bot.send_message(loser_id, f"Sorry, you lost this game. Better luck next time!")
+
+    # Log the game
+    games_collection.insert_one({
+        "player1": winner_id,
+        "player2": loser_id,
+        "winner": winner_id,
+        "timestamp": datetime.utcnow()
+    })
+
+# Polling
+bot.polling()
