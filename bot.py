@@ -108,7 +108,9 @@ def start_game(player1_id, player2_id):
         'scores': {player1_id: 0, player2_id: 0},
         'lifelines': {player1_id: 3, player2_id: 3},
         'start_time': time.time(),
-        'first_correct': None  # To track who typed first
+        'first_correct': None,  # To track who typed first
+        'waiting_for': None,  # To track who is waiting
+        'round_timer': None,  # Timer for round-based time limits
     }
     active_games[(player1_id, player2_id)] = game_data
 
@@ -122,6 +124,9 @@ def start_game(player1_id, player2_id):
     bot.send_photo(player1_id, photo=open(image_file, 'rb'), caption="Type the word fast!")
     bot.send_photo(player2_id, photo=open(image_file, 'rb'), caption="Type the word fast!")
 
+    game_data['round_timer'] = Timer(30, timeout, [player1_id, player2_id])
+    game_data['round_timer'].start()
+
 # Generate Random Word
 def generate_random_word():
     word_length = random.randint(4, 8)
@@ -133,11 +138,9 @@ def generate_word_image(word):
     img = Image.new('RGB', (image_size, image_size), color=(255, 255, 255))  # White background
     d = ImageDraw.Draw(img)
 
-    try:
-        font_size = min(100, image_size // len(word))  # Dynamic font size based on word length
-        font = ImageFont.truetype("arial.ttf", font_size)  # Adjust font size
-    except IOError:
-        font = ImageFont.load_default()
+    # Calculate font size dynamically based on word length
+    font_size = max(40, image_size // len(word))  # Increase font size based on word length
+    font = ImageFont.truetype("arial.ttf", font_size)  # Adjust font size
 
     # Get text size and position to center the word
     bbox = d.textbbox((0, 0), word, font=font)  # Bounding box returns 4 values: (left, top, right, bottom)
@@ -177,43 +180,32 @@ def handle_response(message):
     # Handle input for each level
     if game_data['level'] < 5:
         start_time = time.time()
-        while time.time() - start_time < 15:
-            if user_input == word:
-                update_game_progress(user_id, matched_game)
-                return
-
-        # If no input within time limit, deduct lifeline
-        if time.time() - start_time >= 15 and user_input != word:
+        if user_input == word:
+            update_game_progress(user_id, matched_game)
+            return
+        else:
             game_data['lifelines'][user_id] -= 1
             bot.send_message(user_id, f"Time's up! You have {game_data['lifelines'][user_id]} lifelines left.")
             if game_data['lifelines'][user_id] <= 0:
                 declare_winner(matched_game, loser_id=user_id)
 
-# Game Progression Logic (Updated)
+# Update Game Progress
 def update_game_progress(user_id, matched_game):
     game_data = active_games[matched_game]
     current_level = game_data['level']
     opponent_id = [player for player in matched_game if player != user_id][0]
-    word = game_data['word']
 
-    # Determine who was first to type the word correctly
     points = 50 + (current_level - 1) * 10
     if game_data.get('first_correct', None) is None:
-        # First correct player gets full points
         game_data['scores'][user_id] += points
         game_data['first_correct'] = user_id
         bot.send_message(user_id, f"Correct! 🎉 You earned {points} points this round.")
-        bot.send_message(opponent_id, f"Your opponent was faster! You earned {points // 2} points.")
         game_data['scores'][opponent_id] += points // 2  # Opponent gets half points
-        game_data['lifelines'][opponent_id] -= 1  # Opponent loses a lifeline
+        bot.send_message(opponent_id, f"Your opponent was faster! You earned {points // 2} points.")
     else:
         bot.send_message(user_id, "You typed too late! Waiting for the opponent's response.")
 
-    # Handle the next level or declare winner if no lifelines left
-    if game_data['lifelines'][user_id] <= 0:
-        declare_winner(matched_game, loser_id=user_id)
-        return
-    
+    # Proceed to the next level
     if current_level < MAX_LEVEL:
         game_data['level'] += 1
         new_word = generate_random_word()
@@ -229,7 +221,6 @@ def declare_winner(matched_game, loser_id):
     game_data = active_games[matched_game]
     opponent_id = [player for player in matched_game if player != loser_id][0]
 
-    # Determine winner
     winner_id = opponent_id
     winner_score = game_data['scores'][winner_id]
     loser_score = game_data['scores'][loser_id]
@@ -244,5 +235,12 @@ def declare_winner(matched_game, loser_id):
 
     # Clean up game
     del active_games[matched_game]
+
+# Handle Timeout (If opponent does not respond within time limit)
+def timeout(player1_id, player2_id):
+    game_data = active_games[(player1_id, player2_id)]
+    if game_data['waiting_for']:
+        bot.send_message(game_data['waiting_for'], "You did not respond in time! You have been removed from the game.")
+        declare_winner((player1_id, player2_id), game_data['waiting_for'])
 
 bot.polling()
