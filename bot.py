@@ -138,9 +138,10 @@ def generate_word_image(word):
     img = Image.new('RGB', (image_size, image_size), color=(255, 255, 255))  # White background
     d = ImageDraw.Draw(img)
 
-    # Calculate font size dynamically based on word length
-    font_size = max(40, image_size // len(word))  # Increase font size based on word length
-    font = ImageFont.truetype("arial.ttf", font_size)  # Adjust font size
+    try:
+    font = ImageFont.truetype("arial.ttf", font_size)
+except IOError:
+    font = ImageFont.load_default()  # Use default font if the custom one isn't found
 
     # Get text size and position to center the word
     bbox = d.textbbox((0, 0), word, font=font)  # Bounding box returns 4 values: (left, top, right, bottom)
