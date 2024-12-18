@@ -131,7 +131,7 @@ def generate_word_image(word):
     font = ImageFont.load_default()
     d.text((10, 40), word, fill=(0, 0, 0), font=font)
     
-    file_path = f"assist/{sanki}.png"
+    file_path = f"assets/{sanki}.png"
     img.save(file_path)
     return file_path
 
