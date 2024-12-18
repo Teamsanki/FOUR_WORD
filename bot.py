@@ -127,26 +127,25 @@ from PIL import ImageFont
 
 # Generate Word Image
 def generate_word_image(word):
-    # Set the image size based on the word length (adjust as necessary)
-    image_width = 400
-    image_height = 150
+    # Set the image size (square: 400x400)
+    image_size = 400
     
     # Create a white background image
-    img = Image.new('RGB', (image_width, image_height), color=(255, 255, 255))
+    img = Image.new('RGB', (image_size, image_size), color=(255, 255, 255))
     d = ImageDraw.Draw(img)
 
-    # Load a font and set the font size
+    # Fixed font size
     try:
-        font = ImageFont.truetype("arial.ttf", 60)  # Using a larger font size
+        font = ImageFont.truetype("arial.ttf", 20)  # Use Arial with font size 20
     except IOError:
-        font = ImageFont.load_default()  # Fallback to default font if custom font is unavailable
-    
+        font = ImageFont.load_default()  # Fallback to default font if Arial is unavailable
+
     # Calculate text size and position to center it
     text_width, text_height = d.textsize(word, font=font)
-    text_x = (image_width - text_width) // 2  # Center horizontally
-    text_y = (image_height - text_height) // 2  # Center vertically
-    
-    # Add the text to the image
+    text_x = (image_size - text_width) // 2  # Center horizontally
+    text_y = (image_size - text_height) // 2  # Center vertically
+
+    # Draw the text on the image
     d.text((text_x, text_y), word, fill=(0, 0, 0), font=font)
 
     # Ensure the 'assets' directory exists
@@ -154,9 +153,10 @@ def generate_word_image(word):
         os.makedirs('assets')
 
     # Save the image with the word as the filename
-    file_path = f"assets/{word}.png"  # Using the word as the filename
+    file_path = f"assets/{word}.png"
     img.save(file_path)
     return file_path
+
 
 
 
