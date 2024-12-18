@@ -128,7 +128,7 @@ def generate_random_word():
     return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=word_length))
 
 # Generate Word Image
-# Generate Word Image
+# Fix the error in the `generate_word_image` function
 def generate_word_image(word):
     image_size = 400
     img = Image.new('RGB', (image_size, image_size), color=(255, 255, 255))
@@ -139,15 +139,22 @@ def generate_word_image(word):
     except IOError:
         font = ImageFont.load_default()
 
-    text_width, text_height = d.textbbox((0, 0), word, font=font)
-    text_x = (image_size - text_width) // 2  # Centering text
+    # Corrected line to calculate text bounding box
+    bbox = d.textbbox((0, 0), word, font=font)
+    text_width = bbox[2] - bbox[0]  # right - left
+    text_height = bbox[3] - bbox[1]  # bottom - top
+    
+    # Center the text
+    text_x = (image_size - text_width) // 2
     text_y = (image_size - text_height) // 2
     d.text((text_x, text_y), word, fill=(0, 0, 0), font=font)
 
     # Adding Watermark: "Team Sanki"
     watermark_font = ImageFont.truetype("arial.ttf", 20)
     watermark_text = "Team Sanki"
-    watermark_width, watermark_height = d.textbbox((0, 0), watermark_text, font=watermark_font)
+    watermark_bbox = d.textbbox((0, 0), watermark_text, font=watermark_font)
+    watermark_width = watermark_bbox[2] - watermark_bbox[0]
+    watermark_height = watermark_bbox[3] - watermark_bbox[1]
     watermark_x = (image_size - watermark_width) // 2
     watermark_y = image_size - watermark_height - 10
     d.text((watermark_x, watermark_y), watermark_text, fill=(150, 150, 150), font=watermark_font)
@@ -158,6 +165,7 @@ def generate_word_image(word):
     file_path = f"assets/{word}.png"
     img.save(file_path)
     return file_path
+
 
 # Handle User Responses
 # Handle User Responses with Timer
