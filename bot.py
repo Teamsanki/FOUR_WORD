@@ -139,7 +139,9 @@ def generate_word_image(word):
         font = ImageFont.load_default()
 
     # Get text size and position to center the word
-    text_width, text_height = d.textbbox((0, 0), word, font=font)  # Corrected to textbbox
+    bbox = d.textbbox((0, 0), word, font=font)  # Bounding box returns 4 values: (left, top, right, bottom)
+    text_width = bbox[2] - bbox[0]  # Width of the text
+    text_height = bbox[3] - bbox[1]  # Height of the text
     text_x = (image_size - text_width) // 2  # Centering text
     text_y = (image_size - text_height) // 2
     d.text((text_x, text_y), word, fill=(0, 0, 0), font=font)  # Black text
@@ -151,6 +153,7 @@ def generate_word_image(word):
     file_path = f"assets/{word}.png"
     img.save(file_path)
     return file_path
+
 
 
 # Handle User Responses
