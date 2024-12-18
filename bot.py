@@ -39,8 +39,16 @@ def start(message):
     bot.send_photo(
         message.chat.id,
         photo="https://graph.org/file/ae1108390e6dc4f7231cf-ce089431124e12e862.jpg",  # Replace with your photo URL
-        caption=f"Welcome {message.from_user.first_name}! 🎮\n"
-                "Use /leaderboard to check rankings and /play to start a game."
+        caption=(
+            f"🎮 **Welcome to the Game Bot!** 🎮\n\n"
+            f"Hello {message.from_user.first_name}! Ready to have some fun?\n\n"
+            "📝 **Commands**:\n"
+            "/leaderboard - Check rankings\n"
+            "/play - Start a typing challenge\n"
+            "/ping - Check bot status\n\n"
+            "🤖 **Owner**: @TSGCODER"
+        ),
+        parse_mode="Markdown"
     )
     
     # Log the user start
@@ -52,13 +60,12 @@ def start(message):
 # Leaderboard Command
 @bot.message_handler(commands=['leaderboard'])
 def leaderboard(message):
-    # Get top 5 players from the database
     users = list(users_collection.find().sort("score", -1).limit(5))
     if not users:
         bot.reply_to(message, "Leaderboard is empty!")
         return
 
-    leaderboard_text = "🏆 Leaderboard 🏆\n\n"
+    leaderboard_text = "🏆 **Leaderboard** 🏆\n\n"
     for i, user in enumerate(users, 1):
         leaderboard_text += f"{i}. @{user['username']} - {user['score']} points\n"
     
@@ -71,13 +78,11 @@ def ping(message):
     uptime_text = time.strftime("%H:%M:%S", time.gmtime(current_uptime))
     bot.reply_to(message, f"Pong! 🏓\nUptime: {uptime_text}")
 
-# Typing Game Play Command
+# Play Command
 @bot.message_handler(commands=['play'])
 def play(message):
     user_id = message.from_user.id
-    username = message.from_user.username or "Unknown"
 
-    # Add user to the queue
     if user_id in queue:
         bot.reply_to(message, "You are already in the queue. Please wait for a match!")
         return
@@ -85,82 +90,52 @@ def play(message):
     queue.append(user_id)
     bot.reply_to(message, "You have been added to the queue. Waiting for an opponent...")
 
-    # Check if two players are in the queue
     if len(queue) >= 2:
         player1_id = queue.pop(0)
         player2_id = queue.pop(0)
         
-        player1 = users_collection.find_one({"user_id": player1_id})
-        player2 = users_collection.find_one({"user_id": player2_id})
+        start_game(player1_id, player2_id)
 
-        start_game(player1, player2)
+# Start Game
+def start_game(player1_id, player2_id):
+    word = generate_random_word()
+    active_games[player1_id] = {'word': word, 'score': 0}
+    active_games[player2_id] = {'word': word, 'score': 0}
 
-def start_game(player1, player2):
-    level = 1
-    time_limit = 10  # Starting with 10 seconds for each word
-    active_games[player1['user_id']] = {'level': level, 'score': 0, 'time': time.time(), 'word': generate_random_word(level)}
-    active_games[player2['user_id']] = {'level': level, 'score': 0, 'time': time.time(), 'word': generate_random_word(level)}
+    image_file = generate_word_image(word)
 
-    word = active_games[player1['user_id']]['word']
+    bot.send_photo(player1_id, photo=open(image_file, 'rb'), caption="Type the word fast!")
+    bot.send_photo(player2_id, photo=open(image_file, 'rb'), caption="Type the word fast!")
 
-    def send_word(player):
-        image_file = generate_word_image(word)
-        bot.send_photo(player, photo=open(image_file, 'rb'))
-        start_time = time.time()
-
-        def timeout():
-            if time.time() - start_time >= time_limit:
-                disqualify(player, "Time limit exceeded!")
-
-        Timer(time_limit, timeout).start()
-
-    send_word(player1['user_id'])
-    send_word(player2['user_id'])
-
-# Generate Random Word (A to Z)
-def generate_random_word(level):
-    word_length = level + 3  # Length of the word increases as the level increases
-    word = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=word_length))
-    return word
-
-from PIL import ImageFont
+# Generate Random Word
+def generate_random_word():
+    word_length = 5  # Fixed length for simplicity
+    return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=word_length))
 
 # Generate Word Image
 def generate_word_image(word):
-    # Set the image size (square: 400x400)
     image_size = 400
-    
-    # Create a white background image
     img = Image.new('RGB', (image_size, image_size), color=(255, 255, 255))
     d = ImageDraw.Draw(img)
 
-    # Fixed font size
     try:
-        font = ImageFont.truetype("arial.ttf", 20)  # Use Arial with font size 20
+        font = ImageFont.truetype("arial.ttf", 20)
     except IOError:
-        font = ImageFont.load_default()  # Fallback to default font if Arial is unavailable
+        font = ImageFont.load_default()
 
-    # Calculate text size and position to center it
     text_width, text_height = d.textsize(word, font=font)
-    text_x = (image_size - text_width) // 2  # Center horizontally
-    text_y = (image_size - text_height) // 2  # Center vertically
-
-    # Draw the text on the image
+    text_x = (image_size - text_width) // 2
+    text_y = (image_size - text_height) // 2
     d.text((text_x, text_y), word, fill=(0, 0, 0), font=font)
 
-    # Ensure the 'assets' directory exists
     if not os.path.exists('assets'):
         os.makedirs('assets')
 
-    # Save the image with the word as the filename
     file_path = f"assets/{word}.png"
     img.save(file_path)
     return file_path
 
-
-
-
-# Handle user response and scoring
+# Handle User Responses
 @bot.message_handler(func=lambda message: True)
 def handle_response(message):
     user_id = message.from_user.id
@@ -168,77 +143,15 @@ def handle_response(message):
         return
     
     game = active_games[user_id]
-    current_level = game['level']
-    word = game['word'].strip().lower()  # Strip and convert the word to lowercase
+    word = game['word'].strip().lower()
+    user_input = message.text.strip().lower()
 
-    # Handle user input
-    user_input = message.text.strip().lower()  # Strip and convert user input to lowercase
-
-    # Check if the user input is correct
-    if user_input != word:
-        # Incorrect word penalty
-        new_score = max(0, game['score'] - 5)
-        active_games[user_id]['score'] = new_score
-        bot.send_message(user_id, f"Incorrect word! Your score has been reduced by 5 points. Current score: {new_score}")
+    if user_input == word:
+        game['score'] += 10
+        bot.send_message(user_id, f"Correct! Your score: {game['score']}.")
+        del active_games[user_id]
     else:
-        # Correct word, increase level and score
-        active_games[user_id]['level'] += 1
-        game['score'] += current_level * 10  # Score based on level
+        bot.send_message(user_id, "Incorrect word! Try again faster.")
 
-        bot.send_message(user_id, f"Correct! You are now on level {game['level']} with score: {game['score']}.")
-
-        # Check if player completed the level and has reached level 5
-        if game['level'] >= 5:
-            opponent = get_opponent(user_id)
-            declare_winner(user_id, opponent)
-
-def get_opponent(user_id):
-    # Logic to find the opponent (you can define based on your system)
-    pass
-
-def disqualify(player, reason):
-    # Logic to disqualify a player for not completing in time or wrong word
-    bot.send_message(player, f"Disqualified! {reason}. You lost the game.")
-    # You can also proceed to the next level with 0 score
-    bot.send_message(player, "Next time, try to type faster! You are moved to the next level with 0 score.")
-    # Update scores and game database
-    pass
-
-def declare_winner(winner_id, loser_id):
-    winner = users_collection.find_one({"user_id": winner_id})
-    loser = users_collection.find_one({"user_id": loser_id})
-
-    # Update scores
-    users_collection.update_one({"user_id": winner_id}, {"$inc": {"score": 10 * winner['level']}})
-    
-    # Send winning message to the winner
-    bot.send_message(winner_id, f"🎉 Congrats! You won the game! Your current score: {winner['score']}")
-    
-    # Send losing message to the loser
-    bot.send_message(loser_id, f"😞 Sorry, you lost this game. Better luck next time!")
-
-    # Log the game in the database
-    games_collection.insert_one({
-        "player1": winner_id,
-        "player2": loser_id,
-        "winner": winner_id,
-        "timestamp": datetime.utcnow()
-    })
-    
-    # Update the leaderboard (Top 5 players)
-    update_leaderboard()
-
-def update_leaderboard():
-    # Fetch the top 5 players
-    top_users = list(users_collection.find().sort("score", -1).limit(5))
-    leaderboard_text = "🏆 Updated Leaderboard 🏆\n\n"
-    
-    # Prepare the leaderboard text
-    for i, user in enumerate(top_users, 1):
-        leaderboard_text += f"{i}. @{user['username']} - {user['score']} points\n"
-    
-    # Send the updated leaderboard to a log group or any specific group if needed
-    bot.send_message(LOGGER_GROUP_ID, leaderboard_text)
-
-# Polling 
+# Polling
 bot.polling()
