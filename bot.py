@@ -101,7 +101,6 @@ def play(message):
 
 # Start Game
 def start_game(player1_id, player2_id):
-def start_game(player1_id, player2_id):
     word = generate_random_word()
     game_data = {
         'level': 1,
