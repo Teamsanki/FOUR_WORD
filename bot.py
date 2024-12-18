@@ -167,16 +167,74 @@ def handle_response(message):
     else:
         game_data['lifelines'][user_id] -= 1
         if game_data['lifelines'][user_id] <= 0:
-            declare_winner(matched_game, opponent_id=user_id)
+            declare_winner(matched_game, loser_id=user_id)
         else:
             bot.send_message(user_id, f"Incorrect! Remaining lifelines: {game_data['lifelines'][user_id]}")
 
 # Game Progression Logic
 def update_game_progress(user_id, matched_game):
-    pass  # Add scoring, leveling, and progression logic here
+    game_data = active_games[matched_game]
+    word = game_data['word']
+    current_level = game_data['level']
+    opponent_id = [player for player in matched_game if player != user_id][0]
+
+    # Update the score
+    if game_data['scores'][user_id] == 0:
+        # First correct responder gets full points
+        points = 50 + (current_level - 1) * 10  # Score increases with level
+        game_data['scores'][user_id] += points
+        bot.send_message(user_id, f"Correct! 🎉 You earned {points} points.")
+
+        # Second player gets half points
+        if game_data['scores'][opponent_id] == 0:
+            game_data['scores'][opponent_id] += points // 2
+            bot.send_message(opponent_id, f"Your opponent was faster! You earned {points // 2} points.")
+
+    # Move to the next level
+    if current_level < MAX_LEVEL or (current_level > MAX_LEVEL and (current_level - MAX_LEVEL) % BONUS_LEVEL_INTERVAL != 0):
+        game_data['level'] += 1
+        new_word = generate_random_word()
+        game_data['word'] = new_word
+        image_file = generate_word_image(new_word)
+
+        bot.send_photo(user_id, photo=open(image_file, 'rb'), caption=f"Level {game_data['level']}: Type the word fast!")
+        bot.send_photo(opponent_id, photo=open(image_file, 'rb'), caption=f"Level {game_data['level']}: Type the word fast!")
+    else:
+        # Bonus Level
+        bonus_points = BONUS_POINTS + (game_data['level'] - MAX_LEVEL) * 50
+        game_data['scores'][user_id] += bonus_points
+        bot.send_message(user_id, f"🎉 Bonus Level! You earned {bonus_points} points!")
+        bot.send_message(opponent_id, f"🎉 Bonus Level! You earned {bonus_points // 2} points!")
+
+        game_data['level'] += 1
+        new_word = generate_random_word()
+        game_data['word'] = new_word
+        image_file = generate_word_image(new_word)
+
+        bot.send_photo(user_id, photo=open(image_file, 'rb'), caption=f"Next Level {game_data['level']}: Type the word fast!")
+        bot.send_photo(opponent_id, photo=open(image_file, 'rb'), caption=f"Next Level {game_data['level']}: Type the word fast!")
+
 
 # Declare Winner
-def declare_winner(matched_game, opponent_id):
-    pass  # Add logic to declare winner here
+def declare_winner(matched_game, loser_id):
+    game_data = active_games[matched_game]
+    opponent_id = [player for player in matched_game if player != loser_id][0]
+
+    # Determine winner
+    winner_id = opponent_id
+    winner_score = game_data['scores'][winner_id]
+    loser_score = game_data['scores'][loser_id]
+
+    # Update leaderboard
+    users_collection.update_one({"user_id": winner_id}, {"$inc": {"score": winner_score}})
+    users_collection.update_one({"user_id": loser_id}, {"$inc": {"score": loser_score}})
+
+    # Notify players
+    bot.send_message(winner_id, f"🎉 Congratulations! You won the game with {winner_score} points!")
+    bot.send_message(loser_id, "😢 Game over! Better luck next time.")
+
+    # Clean up game data
+    del active_games[matched_game]
+
 
 bot.polling()
