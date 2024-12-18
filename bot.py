@@ -131,9 +131,15 @@ def generate_word_image(word):
     font = ImageFont.load_default()
     d.text((10, 40), word, fill=(0, 0, 0), font=font)
     
-    file_path = f"assets/{sanki}.png"
+    # Ensure the 'assets' folder exists
+    if not os.path.exists('assets'):
+        os.makedirs('assets')
+
+    # Save the image with the word as the filename
+    file_path = f"assets/{word}.png"  # Using the word as the filename
     img.save(file_path)
     return file_path
+
 
 # Handle user response and scoring
 @bot.message_handler(func=lambda message: True)
