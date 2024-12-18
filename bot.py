@@ -4,6 +4,8 @@ import random
 from threading import Timer
 from pymongo import MongoClient
 from datetime import datetime
+from PIL import Image, ImageDraw, ImageFont
+import os
 
 # Bot Token and MongoDB URL
 BOT_TOKEN = "7396395072:AAG-B-zKxB8LFoKGwf0sbzwropNq-OlxFKk"
@@ -96,21 +98,20 @@ def play(message):
 def start_game(player1, player2):
     level = 1
     time_limit = 10  # Starting with 10 seconds for each word
-    active_games[player1['user_id']] = {'level': level, 'score': 0, 'time': time.time()}
-    active_games[player2['user_id']] = {'level': level, 'score': 0, 'time': time.time()}
+    active_games[player1['user_id']] = {'level': level, 'score': 0, 'time': time.time(), 'word': generate_random_word(level)}
+    active_games[player2['user_id']] = {'level': level, 'score': 0, 'time': time.time(), 'word': generate_random_word(level)}
 
-    # Generate the word once for both players
-    word = generate_random_word(level)
+    word = active_games[player1['user_id']]['word']
 
     def send_word(player):
-        bot.send_message(player, f"Level {level} - You have {time_limit} seconds to type this word: {word}")
+        image_file = generate_word_image(word)
+        bot.send_photo(player, photo=open(image_file, 'rb'))
         start_time = time.time()
 
         def timeout():
             if time.time() - start_time >= time_limit:
                 disqualify(player, "Time limit exceeded!")
 
-        # Pass the player to the timeout function
         Timer(time_limit, timeout).start()
 
     send_word(player1['user_id'])
@@ -122,6 +123,18 @@ def generate_random_word(level):
     word = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=word_length))
     return word
 
+# Generate Word Image
+def generate_word_image(word):
+    # Create a simple PNG image with the word written on it
+    img = Image.new('RGB', (300, 100), color=(255, 255, 255))
+    d = ImageDraw.Draw(img)
+    font = ImageFont.load_default()
+    d.text((10, 40), word, fill=(0, 0, 0), font=font)
+    
+    file_path = f"assist/{word}.png"
+    img.save(file_path)
+    return file_path
+
 # Handle user response and scoring
 @bot.message_handler(func=lambda message: True)
 def handle_response(message):
@@ -131,12 +144,9 @@ def handle_response(message):
     
     game = active_games[user_id]
     current_level = game['level']
-    word = generate_random_word(current_level)  # Generate the correct word for the current level
+    word = game['word']  # Get the word from the current game state
 
-    # Notify the player about the level time limit
-    if current_level >= 5:
-        bot.send_message(user_id, "⚠️ Warning: Real game begins after Level 5. Type fast, or you’ll be disqualified!")
-
+    # Handle correct/incorrect response
     if message.text.strip().lower() != word.lower():
         # Incorrect word penalty
         new_score = max(0, game['score'] - 5)
