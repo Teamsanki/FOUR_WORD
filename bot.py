@@ -127,38 +127,31 @@ def generate_random_word():
     return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=word_length))
 
 # Generate Word Image
+# Generate Word Image (Updated)
 def generate_word_image(word):
     image_size = 400
-    img = Image.new('RGB', (image_size, image_size), color=(255, 255, 255))
+    img = Image.new('RGB', (image_size, image_size), color=(255, 255, 255))  # White background
     d = ImageDraw.Draw(img)
 
     try:
-        font = ImageFont.truetype("arial.ttf", 50)  # Increased font size
+        font = ImageFont.truetype("arial.ttf", 100)  # Increased font size
     except IOError:
         font = ImageFont.load_default()
 
-    # Use textbbox to get bounding box and compute width/height
-    x_min, y_min, x_max, y_max = d.textbbox((0, 0), word, font=font)
-    text_width = x_max - x_min
-    text_height = y_max - y_min
-    
+    # Get text size and position to center the word
+    text_width, text_height = d.textbbox((0, 0), word, font=font)  # Corrected to textbbox
     text_x = (image_size - text_width) // 2  # Centering text
     text_y = (image_size - text_height) // 2
-    d.text((text_x, text_y), word, fill=(0, 0, 0), font=font)
+    d.text((text_x, text_y), word, fill=(0, 0, 0), font=font)  # Black text
 
-    # Adding Watermark: "Team Sanki"
-    watermark_font = ImageFont.truetype("arial.ttf", 20)
-    watermark_text = "Team Sanki"
-    watermark_x = (image_size - watermark_font.getsize(watermark_text)[0]) // 2
-    watermark_y = image_size - watermark_font.getsize(watermark_text)[1] - 10
-    d.text((watermark_x, watermark_y), watermark_text, fill=(150, 150, 150), font=watermark_font)
-
+    # Save image
     if not os.path.exists('assets'):
         os.makedirs('assets')
 
     file_path = f"assets/{word}.png"
     img.save(file_path)
     return file_path
+
 
 # Handle User Responses
 # Handle User Responses with Timer
