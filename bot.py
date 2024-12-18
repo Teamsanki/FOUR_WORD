@@ -25,6 +25,11 @@ queue = []  # Queue of players waiting for a match
 active_games = {}  # Tracking active games
 uptime = time.time()
 
+# Constants
+MAX_LEVEL = 5
+BONUS_LEVEL_INTERVAL = 4
+BONUS_POINTS = 500
+
 # Start Command
 @bot.message_handler(commands=['start'])
 def start(message):
@@ -51,7 +56,6 @@ def start(message):
         parse_mode="Markdown"
     )
     
-    # Log the user start
     bot.send_message(
         LOGGER_GROUP_ID,
         f"User @{username} (ID: {user_id}) has started the bot."
@@ -93,23 +97,27 @@ def play(message):
     if len(queue) >= 2:
         player1_id = queue.pop(0)
         player2_id = queue.pop(0)
-        
         start_game(player1_id, player2_id)
 
 # Start Game
 def start_game(player1_id, player2_id):
     word = generate_random_word()
-    active_games[player1_id] = {'word': word, 'score': 0}
-    active_games[player2_id] = {'word': word, 'score': 0}
+    game_data = {
+        'level': 1,
+        'word': word,
+        'scores': {player1_id: 0, player2_id: 0},
+        'lifelines': {player1_id: 3, player2_id: 3},
+        'start_time': time.time(),
+    }
+    active_games[(player1_id, player2_id)] = game_data
 
     image_file = generate_word_image(word)
-
     bot.send_photo(player1_id, photo=open(image_file, 'rb'), caption="Type the word fast!")
     bot.send_photo(player2_id, photo=open(image_file, 'rb'), caption="Type the word fast!")
 
 # Generate Random Word
 def generate_random_word():
-    word_length = 5  # Fixed length for simplicity
+    word_length = random.randint(4, 8)
     return ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ', k=word_length))
 
 # Generate Word Image
@@ -119,7 +127,7 @@ def generate_word_image(word):
     d = ImageDraw.Draw(img)
 
     try:
-        font = ImageFont.truetype("arial.ttf", 20)
+        font = ImageFont.truetype("arial.ttf", 40)
     except IOError:
         font = ImageFont.load_default()
 
@@ -139,19 +147,36 @@ def generate_word_image(word):
 @bot.message_handler(func=lambda message: True)
 def handle_response(message):
     user_id = message.from_user.id
-    if user_id not in active_games:
+    matched_game = None
+
+    # Check which game the user is part of
+    for game in active_games.keys():
+        if user_id in game:
+            matched_game = game
+            break
+
+    if not matched_game:
         return
     
-    game = active_games[user_id]
-    word = game['word'].strip().lower()
+    game_data = active_games[matched_game]
+    word = game_data['word'].strip().lower()
     user_input = message.text.strip().lower()
 
     if user_input == word:
-        game['score'] += 10
-        bot.send_message(user_id, f"Correct! Your score: {game['score']}.")
-        del active_games[user_id]
+        update_game_progress(user_id, matched_game)
     else:
-        bot.send_message(user_id, "Incorrect word! Try again faster.")
+        game_data['lifelines'][user_id] -= 1
+        if game_data['lifelines'][user_id] <= 0:
+            declare_winner(matched_game, opponent_id=user_id)
+        else:
+            bot.send_message(user_id, f"Incorrect! Remaining lifelines: {game_data['lifelines'][user_id]}")
 
-# Polling
+# Game Progression Logic
+def update_game_progress(user_id, matched_game):
+    pass  # Add scoring, leveling, and progression logic here
+
+# Declare Winner
+def declare_winner(matched_game, opponent_id):
+    pass  # Add logic to declare winner here
+
 bot.polling()
