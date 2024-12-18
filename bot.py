@@ -132,8 +132,8 @@ def generate_word_image(word):
         font = ImageFont.load_default()
 
     text_width, text_height = d.textsize(word, font=font)
-    text_x = (image_size - text_width) // 2
-    text_y = (image_size - text_height) // 2
+    text_x = (image_size - text_width) // 20
+    text_y = (image_size - text_height) // 20
     d.text((text_x, text_y), word, fill=(0, 0, 0), font=font)
 
     if not os.path.exists('assets'):
