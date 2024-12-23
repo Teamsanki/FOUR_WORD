@@ -116,7 +116,6 @@ def start_game(player1_id, player2_id):
 
    # Inform players about their opponent
    player1_name = bot.get_chat_member(player1_id, player1_id).user.username
-```python
    player2_name = bot.get_chat_member(player2_id, player2_id).user.username
    bot.send_message(player1_id, f"Your opponent is @{player2_name}. Get ready to type the word!")
    bot.send_message(player2_id, f"Your opponent is @{player1_name}. Get ready to type the word!")
