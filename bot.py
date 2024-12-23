@@ -3,6 +3,7 @@ from telethon import TelegramClient, events
 import ffmpeg
 from pymongo import MongoClient
 import asyncio
+from telethon.sessions import StringSession
 
 # MongoDB Setup
 client = MongoClient("mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
@@ -15,9 +16,9 @@ api_hash = '0a19238a019c119cea065eae38cebcd2'
 bot_token = '7589149031:AAHCojdq5OmeGjHhDE8qWKiRwSxtRgN5gGk'  # Add your bot token here
 ASSISTANT_STRING_SESSION = 'BQB6_J0AAb6mb69WZ0-m6E847-Pao_ikLMYGzM3su_7XG6IOjuqjLJd-HmYp3_HD6NPDoTeve7oNeNpQQxUj0dcuITKz4LOgOgstLZg8-gJCVGLKoGhAzeNXCVqSxmqNw9mmmpxzdg3YndP8xSaEQ65ZntU9UJ3YXv9dRkHTLI-So1cnY1Sfa4Bz-GWPkTwAdUVxOSz8AAaM3vYGAN0hIsm_M-IAn3vmSAhykifVto8yKjxp9bnEVD7AqRc3qqQzzdv422JZSWZV5jlO2dGWOSYabSh8A0CWol3bAOKl9y2hwvT7YbDawZVNFOGk3ImvS9SFDH9-Mhi3KsIAWaPAHQQsqEWCegAAAAFq-q5XAA'  # Replace this with your assistant's string session
 
-# Initialize the Telegram Client with bot token
+# Initialize the Telegram Clients
 bot_client = TelegramClient('bot', api_id, api_hash).start(bot_token=bot_token)
-assistant_client = TelegramClient('assistant', api_id, api_hash).start(session=ASSISTANT_STRING_SESSION)
+assistant_client = TelegramClient(StringSession(ASSISTANT_STRING_SESSION), api_id, api_hash)
 
 # Cookies setup
 cookies_file = "tsk.txt"  # Path to your YouTube cookies
