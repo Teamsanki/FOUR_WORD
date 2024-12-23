@@ -1,4 +1,4 @@
-pyTelegramBotAPI==4.10.0
-pymongo==4.2.0
-Pillow==9.4.0
-
+yt-dlp==2024.12.13
+telethon==1.28.0
+pymongo==4.5.0
+ffmpeg-python==0.2.0
