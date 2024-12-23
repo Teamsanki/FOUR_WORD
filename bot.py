@@ -5,18 +5,18 @@ from pymongo import MongoClient
 import asyncio
 
 # MongoDB Setup
-client = MongoClient("your_mongodb_connection_string")
+client = MongoClient("mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
 db = client['bot_db']
 logger_collection = db['bot_logger']
 
 # Telegram Client Setup (with string session)
-api_id = 'your_api_id'
-api_hash = 'your_api_hash'
-string_session = 'your_string_session'
+api_id = '8060061'
+api_hash = '0a19238a019c119cea065eae38cebcd2'
+string_session = 'BQB6_J0AAb6mb69WZ0-m6E847-Pao_ikLMYGzM3su_7XG6IOjuqjLJd-HmYp3_HD6NPDoTeve7oNeNpQQxUj0dcuITKz4LOgOgstLZg8-gJCVGLKoGhAzeNXCVqSxmqNw9mmmpxzdg3YndP8xSaEQ65ZntU9UJ3YXv9dRkHTLI-So1cnY1Sfa4Bz-GWPkTwAdUVxOSz8AAaM3vYGAN0hIsm_M-IAn3vmSAhykifVto8yKjxp9bnEVD7AqRc3qqQzzdv422JZSWZV5jlO2dGWOSYabSh8A0CWol3bAOKl9y2hwvT7YbDawZVNFOGk3ImvS9SFDH9-Mhi3KsIAWaPAHQQsqEWCegAAAAFq-q5XAA'
 telethon_client = TelegramClient('bot', api_id, api_hash).start(session=string_session)
 
 # Cookies setup
-cookies_file = "path_to_your_cookies.txt"  # Path to your YouTube cookies
+cookies_file = "tsk.txt"  # Path to your YouTube cookies
 
 # Function to search and get the song URL using yt-dlp
 def get_song_url(song_name):
