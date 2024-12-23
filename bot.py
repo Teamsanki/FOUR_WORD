@@ -1,5 +1,5 @@
 import yt_dlp
-from telethon import TelegramClient
+from telethon import TelegramClient, events
 import ffmpeg
 from pymongo import MongoClient
 import asyncio
@@ -9,11 +9,15 @@ client = MongoClient("mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.n
 db = client['bot_db']
 logger_collection = db['bot_logger']
 
-# Telegram Client Setup (with string session)
+# Telegram Client Setup (with bot token and assistant string session)
 api_id = '8060061'
 api_hash = '0a19238a019c119cea065eae38cebcd2'
-string_session = 'BQB6_J0AAb6mb69WZ0-m6E847-Pao_ikLMYGzM3su_7XG6IOjuqjLJd-HmYp3_HD6NPDoTeve7oNeNpQQxUj0dcuITKz4LOgOgstLZg8-gJCVGLKoGhAzeNXCVqSxmqNw9mmmpxzdg3YndP8xSaEQ65ZntU9UJ3YXv9dRkHTLI-So1cnY1Sfa4Bz-GWPkTwAdUVxOSz8AAaM3vYGAN0hIsm_M-IAn3vmSAhykifVto8yKjxp9bnEVD7AqRc3qqQzzdv422JZSWZV5jlO2dGWOSYabSh8A0CWol3bAOKl9y2hwvT7YbDawZVNFOGk3ImvS9SFDH9-Mhi3KsIAWaPAHQQsqEWCegAAAAFq-q5XAA'
-telethon_client = TelegramClient('bot', api_id, api_hash).start(session=string_session)
+bot_token = 'YOUR_BOT_TOKEN'  # Add your bot token here
+ASSISTANT_STRING_SESSION = 'YOUR_ASSISTANT_STRING_SESSION'  # Replace this with your assistant's string session
+
+# Initialize the Telegram Client with bot token
+bot_client = TelegramClient('bot', api_id, api_hash).start(bot_token=bot_token)
+assistant_client = TelegramClient('assistant', api_id, api_hash).start(session=ASSISTANT_STRING_SESSION)
 
 # Cookies setup
 cookies_file = "tsk.txt"  # Path to your YouTube cookies
@@ -34,19 +38,19 @@ async def play_music_in_vc(group_id, song_name):
     # Get song URL
     video_url, song_title = get_song_url(song_name)
 
-    # Join the voice chat
-    group = await telethon_client.get_entity(group_id)
-    call = await telethon_client.start_voice_chat(group)
+    # Join the voice chat using the assistant
+    group = await assistant_client.get_entity(group_id)
+    call = await assistant_client.start_voice_chat(group)
 
     # Stream the audio into the voice chat
-    # Use ffmpeg to stream the music from the YouTube video URL
     ffmpeg.input(video_url).output('pipe:1', format='wav').run()
-    
+
     # Log the play event
     log_play_event(group_id, song_title, video_url)
 
 # Log the play event in MongoDB
 def log_play_event(group_id, song_title, video_url):
+    from datetime import datetime
     play_data = {
         "song_name": song_title,
         "group_id": group_id,
@@ -56,26 +60,23 @@ def log_play_event(group_id, song_title, video_url):
     logger_collection.insert_one(play_data)
 
 # Telegram Bot to handle play command
-async def handle_play_command(message):
-    if message.chat.type == 'private':
-        await message.reply("This command only works in a group!")
+@bot_client.on(events.NewMessage(pattern='/play'))
+async def handle_play_command(event):
+    if event.chat.type == 'private':
+        await event.reply("This command only works in a group!")
         return
-    
+
     # Extract the song name from the command
-    song_name = message.text.split(' ', 1)[1] if len(message.text.split(' ', 1)) > 1 else None
+    song_name = event.text.split(' ', 1)[1] if len(event.text.split(' ', 1)) > 1 else None
     if song_name:
-        group_id = message.chat.id
+        group_id = event.chat.id
         await play_music_in_vc(group_id, song_name)
-        await message.reply(f"Now playing: {song_name} 🎶")
+        await event.reply(f"Now playing: {song_name} 🎶")
 
 # Function to start the bot
 async def start_bot():
-    @telethon_client.on(events.NewMessage(pattern='/play'))
-    async def play_command_handler(event):
-        await handle_play_command(event.message)
-
     print("Bot is running...")
-    await telethon_client.run_until_disconnected()
+    await bot_client.run_until_disconnected()
 
 # Run the bot
 loop = asyncio.get_event_loop()
