@@ -10,10 +10,10 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
 # Initialize bot and MongoDB client
-API_TOKEN = os.getenv('TELEGRAM_API_TOKEN')
+API_TOKEN = os.getenv('7589149031:AAHCojdq5OmeGjHhDE8qWKiRwSxtRgN5gGk')
 bot = telebot.TeleBot(API_TOKEN)
 
-MONGO_URL = os.getenv('MONGO_URL')
+MONGO_URL = os.getenv('mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
 client = MongoClient(MONGO_URL)
 db = client['music_bot']
 logger_collection = db['logger']
