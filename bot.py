@@ -1,6 +1,6 @@
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler
 from telegram.ext import filters  # Import filters directly
 import yt_dlp
 
@@ -15,7 +15,7 @@ OWNER_ID = "7877197608"
 LOGGER_GROUP_ID = "-1002100433415"
 
 # Function to send welcome message
-def start(update, context):
+async def start(update, context):
     user = update.message.from_user
     welcome_msg = (
         "Welcome to the Advanced Music Bot!\n"
@@ -34,18 +34,18 @@ def start(update, context):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    update.message.reply_photo(photo='YOUR_WELCOME_IMAGE_URL', caption=welcome_msg, reply_markup=reply_markup)
+    await update.message.reply_photo(photo='YOUR_WELCOME_IMAGE_URL', caption=welcome_msg, reply_markup=reply_markup)
 
     # Log user details
     user_data = f"Name: {user.full_name}\nUsername: @{user.username}\nUser ID: {user.id}"
-    context.bot.send_message(LOGGER_GROUP_ID, user_data)
+    await context.bot.send_message(LOGGER_GROUP_ID, user_data)
 
 # Command to handle adding bot to a group
-def add_group(update, context):
-    update.callback_query.answer("To add the bot to a group, use the 'Add Group' button in the bot's menu.")
+async def add_group(update, context):
+    await update.callback_query.answer("To add the bot to a group, use the 'Add Group' button in the bot's menu.")
 
 # Command to show available commands
-def add_commands(update, context):
+async def add_commands(update, context):
     commands = (
         "Here are the available commands:\n"
         "/play [song name or URL] - Play music\n"
@@ -53,10 +53,10 @@ def add_commands(update, context):
         "/resume - Resume music\n"
         "/end - End music session"
     )
-    update.callback_query.answer(commands)
+    await update.callback_query.answer(commands)
 
 # Play music command
-def play(update, context):
+async def play(update, context):
     if update.message.chat.type != 'private':  # Ensure it's a group
         user = update.message.from_user
         song = ' '.join(context.args)
@@ -64,53 +64,51 @@ def play(update, context):
         
         # Music playing logic using yt-dlp or another library
         play_msg = f"Playing song: {song}\nRequested by: {user.full_name}"
-        context.bot.send_message(LOGGER_GROUP_ID, f"Name: {user.full_name}\nUsername: @{user.username}\nUser ID: {user.id}\nSong: {song}")
+        await context.bot.send_message(LOGGER_GROUP_ID, f"Name: {user.full_name}\nUsername: @{user.username}\nUser ID: {user.id}\nSong: {song}")
 
-        update.message.reply_text(play_msg)
+        await update.message.reply_text(play_msg)
         
         # Add code to join VC and play music
 
     else:
-        update.message.reply_text("You can only use this command in a group!")
+        await update.message.reply_text("You can only use this command in a group!")
 
 # Pause music command
-def pause(update, context):
+async def pause(update, context):
     # Implement pause logic (e.g., pause music in the voice chat)
-    update.message.reply_text("Music paused.")
+    await update.message.reply_text("Music paused.")
 
 # Resume music command
-def resume(update, context):
+async def resume(update, context):
     # Implement resume logic (e.g., resume music in the voice chat)
-    update.message.reply_text("Music resumed.")
+    await update.message.reply_text("Music resumed.")
 
 # End music command
-def end(update, context):
+async def end(update, context):
     # Implement end music logic (e.g., stop music in the voice chat)
-    update.message.reply_text("Music ended.")
+    await update.message.reply_text("Music ended.")
 
     # Log the end of the music session
     user = update.message.from_user
-    context.bot.send_message(LOGGER_GROUP_ID, f"Music session ended by {user.full_name}")
+    await context.bot.send_message(LOGGER_GROUP_ID, f"Music session ended by {user.full_name}")
 
 def main():
-    # Set up the Updater and Dispatcher
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
+    # Create the application and pass the bot's token
+    application = Application.builder().token(TOKEN).build()
 
     # Add command handlers
-    dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(CommandHandler("play", play))
-    dp.add_handler(CommandHandler("pause", pause))
-    dp.add_handler(CommandHandler("resume", resume))
-    dp.add_handler(CommandHandler("end", end))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("play", play))
+    application.add_handler(CommandHandler("pause", pause))
+    application.add_handler(CommandHandler("resume", resume))
+    application.add_handler(CommandHandler("end", end))
 
     # Add callback handlers for inline buttons
-    dp.add_handler(CallbackQueryHandler(add_group, pattern="add_group"))
-    dp.add_handler(CallbackQueryHandler(add_commands, pattern="add_commands"))
+    application.add_handler(CallbackQueryHandler(add_group, pattern="add_group"))
+    application.add_handler(CallbackQueryHandler(add_commands, pattern="add_commands"))
 
     # Start the bot
-    updater.start_polling()
-    updater.idle()
+    application.run_polling()
 
 if __name__ == '__main__':
     main()
