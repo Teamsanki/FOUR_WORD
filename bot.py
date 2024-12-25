@@ -1,6 +1,6 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler
-from telegram.ext.filters import Filters  # Import Filters this way
+from telegram.ext import filters  # Import filters directly
 import yt_dlp
 
 # Set up logging
@@ -62,8 +62,6 @@ def play(update, context):
         assistant_id = "BQB6_J0AAb6mb69WZ0-m6E847-Pao_ikLMYGzM3su_7XG6IOjuqjLJd-HmYp3_HD6NPDoTeve7oNeNpQQxUj0dcuITKz4LOgOgstLZg8-gJCVGLKoGhAzeNXCVqSxmqNw9mmmpxzdg3YndP8xSaEQ65ZntU9UJ3YXv9dRkHTLI-So1cnY1Sfa4Bz-GWPkTwAdUVxOSz8AAaM3vYGAN0hIsm_M-IAn3vmSAhykifVto8yKjxp9bnEVD7AqRc3qqQzzdv422JZSWZV5jlO2dGWOSYabSh8A0CWol3bAOKl9y2hwvT7YbDawZVNFOGk3ImvS9SFDH9-Mhi3KsIAWaPAHQQsqEWCegAAAAFq-q5XAA"
         
         # Music playing logic using yt-dlp or another library
-        # You can implement YouTube audio download and streaming here
-        
         play_msg = f"Playing song: {song}\nRequested by: {user.full_name}"
         context.bot.send_message(LOGGER_GROUP_ID, f"Name: {user.full_name}\nUsername: @{user.username}\nUser ID: {user.id}\nSong: {song}")
 
