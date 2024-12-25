@@ -5,22 +5,23 @@ from flask import Flask, render_template
 from pymongo import MongoClient
 from yt_dlp import YoutubeDL
 from threading import Thread
+from urllib.parse import quote  # Use urllib instead of url_quote from werkzeug
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 
 # Initialize bot and MongoDB client
-API_TOKEN = os.getenv('7589149031:AAHCojdq5OmeGjHhDE8qWKiRwSxtRgN5gGk')  # Replace with your bot's token or set as an environment variable
+API_TOKEN = os.getenv('BOT_TOKEN', '7589149031:AAHCojdq5OmeGjHhDE8qWKiRwSxtRgN5gGk')  # Replace with your bot token
 bot = telebot.TeleBot(API_TOKEN)
 
-MONGO_URL = os.getenv('mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')  # Replace with your MongoDB connection string or set as an environment variable
+MONGO_URL = os.getenv('MONGO_URL', 'mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')  # Replace with your MongoDB URL
 client = MongoClient(MONGO_URL)
 db = client['music_bot']
 logger_collection = db['logger']
 
 # Logger group ID (replace with your group's ID)
-LOGGER_GROUP_ID = -1002148651992  # Replace with the actual group ID where logs should be sent
+LOGGER_GROUP_ID = -1002100433415  # Replace with the actual group ID
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -90,8 +91,8 @@ def play_music(message):
         
         # Render the music room using Flask
         group_name = "Sample Group"  # You can dynamically get this based on the group
-        song_name_display = song_name
-        music_room_url = f"https://teamsanki.github.io/sankiworld//music-room/{group_name}/{song_name_display}/{song_url}/{song_image_url}"
+        song_name_display = quote(song_name)  # Safely encode the song name
+        music_room_url = f"https://teamsanki.github.io/sankiworld/music-room/{quote(group_name)}/{song_name_display}/{quote(song_url)}/{quote(song_image_url)}"
         bot.send_message(message.chat.id, f"Join the music room: {music_room_url}")
     
     except Exception as e:
