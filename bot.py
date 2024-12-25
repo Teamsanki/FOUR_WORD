@@ -95,27 +95,34 @@ def play_music(message):
         log_activity(activity_data)
         
         # Call yt-dlp to fetch song URL and thumbnail image
-        ydl_opts = {
-            'quiet': True,
-            'cookiefile': 'tsk.txt',  # Add cookie file to bypass bot verification
-        }
+        ydl_opts = {'quiet': True, 'cookiefile': 'tsk.txt'}
         with YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(f'ytsearch:{song_name}', download=False)
-            song_url = info_dict['entries'][0]['url']
-            song_image_url = info_dict['entries'][0]['thumbnail']  # Thumbnail URL
-        
+
+            # Check if results are available
+            if not info_dict.get('entries') or len(info_dict['entries']) == 0:
+                bot.send_message(message.chat.id, f"No results found for '{song_name}'. Please try another song.")
+                return
+            
+            # Extract URL and thumbnail
+            entry = info_dict['entries'][0]
+            song_url = entry.get('url')
+            song_image_url = entry.get('thumbnail', "No thumbnail available.")
+
+            # If URL is missing, send an error message
+            if not song_url:
+                bot.send_message(message.chat.id, f"Unable to fetch the song URL for '{song_name}'. Please try again later.")
+                return
+
         # Send song info to the user
-        bot.send_message(message.chat.id, f"Playing {song_name}...\nSong Image: {song_image_url}")
+        bot.send_message(message.chat.id, f"Playing {song_name}...\nSong URL: {song_url}\nSong Image: {song_image_url}")
         
         # Render the music room using Flask
         group_name = "Sample Group"  # You can dynamically get this based on the group
-        song_name_display = quote(song_name)  # Safely encode the song name
-        music_room_url = f"https://teamsanki.github.io/sankiworld/music-room/{quote(group_name)}/{song_name_display}/{quote(song_url)}/{quote(song_image_url)}"
+        song_name_display = song_name
+        music_room_url = f"https://teamsanki.github.io/sankiworld/music-room/{group_name}/{song_name_display}/{song_url}/{song_image_url}"
         bot.send_message(message.chat.id, f"Join the music room: {music_room_url}")
     
-    except IndexError:
-        bot.send_message(message.chat.id, "No results found for the given song name.")
-        logger.error("Error in play_music: No results found.")
     except Exception as e:
         bot.send_message(message.chat.id, "An error occurred while processing your request.")
         logger.error(f"Error in play_music: {e}")
