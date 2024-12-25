@@ -1,149 +1,117 @@
-import os
 import logging
-import telebot
-from flask import Flask, render_template
-from pymongo import MongoClient
-from yt_dlp import YoutubeDL
-from threading import Thread
-from urllib.parse import quote
-import socket
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
+import yt_dlp
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger()
+logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Initialize bot and MongoDB client
-API_TOKEN = os.getenv('BOT_TOKEN', '7589149031:AAHCojdq5OmeGjHhDE8qWKiRwSxtRgN5gGk')  # Replace with your bot token
-bot = telebot.TeleBot(API_TOKEN)
+# Bot token and other configuration
+TOKEN = "7589149031:AAHCojdq5OmeGjHhDE8qWKiRwSxtRgN5gGk"
+OWNER_ID = "7877197608"
+LOGGER_GROUP_ID = "-1002100433415"
 
-MONGO_URL = os.getenv('MONGO_URL', 'mongodb+srv://Teamsanki:Teamsanki@cluster0.jxme6.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')  # Replace with your MongoDB URL
-client = MongoClient(MONGO_URL)
-db = client['music_bot']
-logger_collection = db['logger']
-
-# Logger group ID (replace with your group's ID)
-LOGGER_GROUP_ID = -1002100433415  # Replace with the actual group ID
-
-# Initialize Flask app
-app = Flask(__name__)
-
-# Automatically find an available port for Flask
-def find_available_port(default_port=5000):
-    port = default_port
-    while True:
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-            if s.connect_ex(('127.0.0.1', port)) != 0:
-                return port
-            port += 1
-
-# Inline button and callback functions
-def start(message):
-    markup = telebot.types.InlineKeyboardMarkup(row_width=2)
-    button1 = telebot.types.InlineKeyboardButton("Add me to Group", url="https://t.me/your_bot")
-    button2 = telebot.types.InlineKeyboardButton("Commands", callback_data="commands")
-    markup.add(button1, button2)
-    
-    bot.send_photo(
-        message.chat.id, 
-        'https://graph.org/file/cfdf03d8155f959c18668-3c90376a72789999f1.jpg',
-        caption="Welcome to Music Bot!",
-        reply_markup=markup
+# Function to send welcome message
+def start(update, context):
+    user = update.message.from_user
+    welcome_msg = (
+        "Welcome to the Advanced Music Bot!\n"
+        "You can use this bot to play music in groups.\n"
+        "Commands:\n"
+        "/play [song name or URL] - Play music\n"
+        "/pause - Pause music\n"
+        "/resume - Resume music\n"
+        "/end - End music session"
     )
-
-@bot.callback_query_handler(func=lambda call: call.data == 'commands')
-def send_commands(call):
-    bot.send_message(call.message.chat.id, "Commands:\n/play <song_name>\n/pause\n/resume\n/end")
-
-# Log user activity and send to logger group
-def log_activity(activity_data):
-    # Save to MongoDB
-    logger_collection.insert_one(activity_data)
     
-    # Send to logger group
-    log_message = (
-        f"**Activity Log**\n"
-        f"**Activity:** {activity_data.get('activity')}\n"
-        f"**User:** {activity_data.get('user_name')} (ID: {activity_data.get('user_id')})\n"
-        f"**Chat ID:** {activity_data.get('chat_id')}\n"
-        f"**Song:** {activity_data.get('song', 'N/A')}"
+    # Send welcome message with inline buttons
+    keyboard = [
+        [InlineKeyboardButton("Add Group", callback_data="add_group")],
+        [InlineKeyboardButton("Add Commands", callback_data="add_commands")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    update.message.reply_photo(photo='YOUR_WELCOME_IMAGE_URL', caption=welcome_msg, reply_markup=reply_markup)
+
+    # Log user details
+    user_data = f"Name: {user.full_name}\nUsername: @{user.username}\nUser ID: {user.id}"
+    context.bot.send_message(LOGGER_GROUP_ID, user_data)
+
+# Command to handle adding bot to a group
+def add_group(update, context):
+    update.callback_query.answer("To add the bot to a group, use the 'Add Group' button in the bot's menu.")
+
+# Command to show available commands
+def add_commands(update, context):
+    commands = (
+        "Here are the available commands:\n"
+        "/play [song name or URL] - Play music\n"
+        "/pause - Pause music\n"
+        "/resume - Resume music\n"
+        "/end - End music session"
     )
-    bot.send_message(LOGGER_GROUP_ID, log_message, parse_mode="Markdown")
+    update.callback_query.answer(commands)
 
-@bot.message_handler(commands=['start'])
-def handle_start(message):
-    activity_data = {
-        'activity': 'Bot Started',
-        'user_name': message.from_user.first_name,
-        'user_id': message.from_user.id,
-        'chat_id': message.chat.id
-    }
-    log_activity(activity_data)
-    start(message)
-
-# Play music command with song image
-@bot.message_handler(commands=['play'])
-def play_music(message):
-    try:
-        song_name = message.text.split(' ', 1)[1]  # Extract the song name
-        activity_data = {
-            'activity': 'Play Song',
-            'user_name': message.from_user.first_name,
-            'user_id': message.from_user.id,
-            'chat_id': message.chat.id,
-            'song': song_name
-        }
-        log_activity(activity_data)
+# Play music command
+def play(update, context):
+    if update.message.chat.type != 'private':  # Ensure it's a group
+        user = update.message.from_user
+        song = ' '.join(context.args)
+        assistant_id = "BQB6_J0AAb6mb69WZ0-m6E847-Pao_ikLMYGzM3su_7XG6IOjuqjLJd-HmYp3_HD6NPDoTeve7oNeNpQQxUj0dcuITKz4LOgOgstLZg8-gJCVGLKoGhAzeNXCVqSxmqNw9mmmpxzdg3YndP8xSaEQ65ZntU9UJ3YXv9dRkHTLI-So1cnY1Sfa4Bz-GWPkTwAdUVxOSz8AAaM3vYGAN0hIsm_M-IAn3vmSAhykifVto8yKjxp9bnEVD7AqRc3qqQzzdv422JZSWZV5jlO2dGWOSYabSh8A0CWol3bAOKl9y2hwvT7YbDawZVNFOGk3ImvS9SFDH9-Mhi3KsIAWaPAHQQsqEWCegAAAAFq-q5XAA"
         
-        # Call yt-dlp to fetch song URL and thumbnail image
-        ydl_opts = {'quiet': True, 'cookiefile': 'tsk.txt'}
-        with YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(f'ytsearch:{song_name}', download=False)
-
-            # Check if results are available
-            if not info_dict.get('entries') or len(info_dict['entries']) == 0:
-                bot.send_message(message.chat.id, f"No results found for '{song_name}'. Please try another song.")
-                return
-            
-            # Extract URL and thumbnail
-            entry = info_dict['entries'][0]
-            song_url = entry.get('url')
-            song_image_url = entry.get('thumbnail', "No thumbnail available.")
-
-            # If URL is missing, send an error message
-            if not song_url:
-                bot.send_message(message.chat.id, f"Unable to fetch the song URL for '{song_name}'. Please try again later.")
-                return
-
-        # Send song info to the user
-        bot.send_message(message.chat.id, f"Playing {song_name}...\nSong URL: {song_url}\nSong Image: {song_image_url}")
+        # Music playing logic using yt-dlp or another library
+        # You can implement YouTube audio download and streaming here
         
-        # Render the music room using Flask
-        group_name = "Sample Group"  # You can dynamically get this based on the group
-        song_name_display = song_name
-        music_room_url = f"https://teamsanki.github.io/sankiworld/music-room/{group_name}/{song_name_display}/{song_url}/{song_image_url}"
-        bot.send_message(message.chat.id, f"Join the music room: {music_room_url}")
-    
-    except Exception as e:
-        bot.send_message(message.chat.id, "An error occurred while processing your request.")
-        logger.error(f"Error in play_music: {e}")
+        play_msg = f"Playing song: {song}\nRequested by: {user.full_name}"
+        context.bot.send_message(LOGGER_GROUP_ID, f"Name: {user.full_name}\nUsername: @{user.username}\nUser ID: {user.id}\nSong: {song}")
 
-# Flask route for music room
-@app.route('/music-room/<group_name>/<song_name>/<song_url>/<song_image_url>')
-def music_room(group_name, song_name, song_url, song_image_url):
-    # Example static list of users, you should fetch dynamic data if necessary
-    users = ["User1", "User2", "User3"]
-    return render_template("music_room.html", group_name=group_name, song_name=song_name, 
-                           song_url=song_url, song_image_url=song_image_url, users=users)
+        update.message.reply_text(play_msg)
+        
+        # Add code to join VC and play music
 
-# Run bot and Flask together
-if __name__ == "__main__":
-    def run_bot():
-        bot.polling()
-    
-    # Run the bot in a separate thread
-    thread = Thread(target=run_bot)
-    thread.start()
-    
-    # Run the Flask server
-    port = find_available_port()
-    app.run(debug=True, port=port, use_reloader=False)
+    else:
+        update.message.reply_text("You can only use this command in a group!")
+
+# Pause music command
+def pause(update, context):
+    # Implement pause logic (e.g., pause music in the voice chat)
+    update.message.reply_text("Music paused.")
+
+# Resume music command
+def resume(update, context):
+    # Implement resume logic (e.g., resume music in the voice chat)
+    update.message.reply_text("Music resumed.")
+
+# End music command
+def end(update, context):
+    # Implement end music logic (e.g., stop music in the voice chat)
+    update.message.reply_text("Music ended.")
+
+    # Log the end of the music session
+    user = update.message.from_user
+    context.bot.send_message(LOGGER_GROUP_ID, f"Music session ended by {user.full_name}")
+
+def main():
+    # Set up the Updater and Dispatcher
+    updater = Updater(TOKEN, use_context=True)
+    dp = updater.dispatcher
+
+    # Add command handlers
+    dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(CommandHandler("play", play))
+    dp.add_handler(CommandHandler("pause", pause))
+    dp.add_handler(CommandHandler("resume", resume))
+    dp.add_handler(CommandHandler("end", end))
+
+    # Add callback handlers for inline buttons
+    dp.add_handler(CallbackQueryHandler(add_group, pattern="add_group"))
+    dp.add_handler(CallbackQueryHandler(add_commands, pattern="add_commands"))
+
+    # Start the bot
+    updater.start_polling()
+    updater.idle()
+
+if __name__ == '__main__':
+    main()
