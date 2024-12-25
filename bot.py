@@ -1,3 +1,4 @@
+import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler
 from telegram.ext import filters  # Import filters directly
