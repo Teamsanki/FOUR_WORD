@@ -1,5 +1,5 @@
 python-telegram-bot==20.0
 yt-dlp==2024.12.23
-aiovc==1.0.0  # For voice chat handling (you may need to check for compatibility)
-pydub==0.25.1  # To process audio files (if needed)
-ffmpeg==5.1.2  # Required for audio processing
+pyrogram==2.0.0
+pydub==0.25.1
+ffmpeg==5.1.2
