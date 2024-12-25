@@ -97,7 +97,7 @@ def play_music(message):
         # Call yt-dlp to fetch song URL and thumbnail image
         ydl_opts = {
             'quiet': True,
-            'cookiefile': 'cookies.txt',  # Add cookie file to bypass bot verification
+            'cookiefile': 'tsk.txt',  # Add cookie file to bypass bot verification
         }
         with YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(f'ytsearch:{song_name}', download=False)
