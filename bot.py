@@ -5,7 +5,8 @@ from flask import Flask, render_template
 from pymongo import MongoClient
 from yt_dlp import YoutubeDL
 from threading import Thread
-from urllib.parse import quote  # Use urllib instead of url_quote from werkzeug
+from urllib.parse import quote
+import socket
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -26,6 +27,15 @@ LOGGER_GROUP_ID = -1002100433415  # Replace with the actual group ID
 # Initialize Flask app
 app = Flask(__name__)
 
+# Automatically find an available port for Flask
+def find_available_port(default_port=5000):
+    port = default_port
+    while True:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            if s.connect_ex(('127.0.0.1', port)) != 0:
+                return port
+            port += 1
+
 # Inline button and callback functions
 def start(message):
     markup = telebot.types.InlineKeyboardMarkup(row_width=2)
@@ -33,7 +43,12 @@ def start(message):
     button2 = telebot.types.InlineKeyboardButton("Commands", callback_data="commands")
     markup.add(button1, button2)
     
-    bot.send_photo(message.chat.id, 'https://graph.org/file/cfdf03d8155f959c18668-3c90376a72789999f1.jpg', caption="Welcome to Music Bot!", reply_markup=markup)
+    bot.send_photo(
+        message.chat.id, 
+        'https://graph.org/file/cfdf03d8155f959c18668-3c90376a72789999f1.jpg',
+        caption="Welcome to Music Bot!",
+        reply_markup=markup
+    )
 
 @bot.callback_query_handler(func=lambda call: call.data == 'commands')
 def send_commands(call):
@@ -79,8 +94,11 @@ def play_music(message):
         }
         log_activity(activity_data)
         
-        # Call ytdlp to fetch song URL and thumbnail image
-        ydl_opts = {'quiet': True}
+        # Call yt-dlp to fetch song URL and thumbnail image
+        ydl_opts = {
+            'quiet': True,
+            'cookiefile': 'cookies.txt',  # Add cookie file to bypass bot verification
+        }
         with YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(f'ytsearch:{song_name}', download=False)
             song_url = info_dict['entries'][0]['url']
@@ -95,6 +113,9 @@ def play_music(message):
         music_room_url = f"https://teamsanki.github.io/sankiworld/music-room/{quote(group_name)}/{song_name_display}/{quote(song_url)}/{quote(song_image_url)}"
         bot.send_message(message.chat.id, f"Join the music room: {music_room_url}")
     
+    except IndexError:
+        bot.send_message(message.chat.id, "No results found for the given song name.")
+        logger.error("Error in play_music: No results found.")
     except Exception as e:
         bot.send_message(message.chat.id, "An error occurred while processing your request.")
         logger.error(f"Error in play_music: {e}")
@@ -117,4 +138,5 @@ if __name__ == "__main__":
     thread.start()
     
     # Run the Flask server
-    app.run(debug=True, use_reloader=False)
+    port = find_available_port()
+    app.run(debug=True, port=port, use_reloader=False)
