@@ -1,9 +1,9 @@
 import os
 import logging
 import telebot
-from telebot import types
-from ytdlp import YoutubeDL
+from flask import Flask, render_template
 from pymongo import MongoClient
+from yt_dlp import YoutubeDL
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -18,11 +18,14 @@ client = MongoClient(MONGO_URL)
 db = client['music_bot']
 logger_collection = db['logger']
 
+# Initialize Flask app
+app = Flask(__name__)
+
 # Inline button and callback functions
 def start(message):
-    markup = types.InlineKeyboardMarkup(row_width=2)
-    button1 = types.InlineKeyboardButton("Add me to Group", url="https://t.me/your_bot")
-    button2 = types.InlineKeyboardButton("Commands", callback_data="commands")
+    markup = telebot.types.InlineKeyboardMarkup(row_width=2)
+    button1 = telebot.types.InlineKeyboardButton("Add me to Group", url="https://t.me/your_bot")
+    button2 = telebot.types.InlineKeyboardButton("Commands", callback_data="commands")
     markup.add(button1, button2)
     
     bot.send_photo(message.chat.id, 'https://your-image-url.jpg', caption="Welcome to Music Bot!", reply_markup=markup)
@@ -31,7 +34,7 @@ def start(message):
 def send_commands(call):
     bot.send_message(call.message.chat.id, "Commands:\n/play <song_name>\n/pause\n/resume\n/end")
 
-# Function to log user activities
+# Log user activity
 def log_activity(activity_data):
     logger_collection.insert_one(activity_data)
 
@@ -44,6 +47,7 @@ def handle_start(message):
     })
     start(message)
 
+# Play music command with song image
 @bot.message_handler(commands=['play'])
 def play_music(message):
     song_name = message.text.split(' ', 1)[1]  # Extract the song name
@@ -54,20 +58,40 @@ def play_music(message):
         'song': song_name,
         'chat_id': message.chat.id
     })
-    # Call ytdlp to fetch the song URL (you need to configure ytdlp properly)
+    
+    # Call ytdlp to fetch song URL and thumbnail image
     ydl_opts = {'quiet': True}
     with YoutubeDL(ydl_opts) as ydl:
         info_dict = ydl.extract_info(f'ytsearch:{song_name}', download=False)
         song_url = info_dict['entries'][0]['url']
+        song_image_url = info_dict['entries'][0]['thumbnail']  # Thumbnail URL
+        
+    # Send song info to the user
+    bot.send_message(message.chat.id, f"Playing {song_name}...\nSong Image: {song_image_url}")
+    
+    # Render the music room using Flask
+    group_name = "Sample Group"  # You can dynamically get this based on the group
+    song_name_display = song_name
+    music_room_url = f"http://your-app-url/music-room/{group_name}/{song_name_display}/{song_url}/{song_image_url}"
+    bot.send_message(message.chat.id, f"Join the music room: {music_room_url}")
 
-    # Simulating music play (this will be further developed to manage rooms)
-    bot.send_message(message.chat.id, f"Playing {song_name}...")
+# Flask route for music room
+@app.route('/music-room/<group_name>/<song_name>/<song_url>/<song_image_url>')
+def music_room(group_name, song_name, song_url, song_image_url):
+    # Example static list of users, you should fetch dynamic data if necessary
+    users = ["User1", "User2", "User3"]
+    return render_template("music_room.html", group_name=group_name, song_name=song_name, 
+                           song_url=song_url, song_image_url=song_image_url, users=users)
 
-# Function for handling messages
-@bot.message_handler(func=lambda message: True)
-def handle_message(message):
-    # Handle additional logic like pause, resume, etc.
-    pass
-
+# Run bot and Flask together
 if __name__ == "__main__":
-    bot.polling()
+    from threading import Thread
+    def run_bot():
+        bot.polling()
+    
+    # Run the bot in a separate thread
+    thread = Thread(target=run_bot)
+    thread.start()
+    
+    # Run the Flask server
+    app.run(debug=True, use_reloader=False)
