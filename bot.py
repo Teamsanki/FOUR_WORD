@@ -34,7 +34,7 @@ async def start(update, context):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await update.message.reply_photo(photo='YOUR_WELCOME_IMAGE_URL', caption=welcome_msg, reply_markup=reply_markup)
+    await update.message.reply_photo(photo='https://graph.org/file/cfdf03d8155f959c18668-3c90376a72789999f1.jpg', caption=welcome_msg, reply_markup=reply_markup)
 
     # Log user details
     user_data = f"Name: {user.full_name}\nUsername: @{user.username}\nUser ID: {user.id}"
