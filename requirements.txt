@@ -1,6 +1,1 @@
 python-telegram-bot==20.0
-yt-dlp==2024.12.23
-pyrogram==2.0.0
-pydub==0.25.1
-ffmpeg
-aiovc
