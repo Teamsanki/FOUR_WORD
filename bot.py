@@ -1,6 +1,6 @@
-import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler, Filters
+from telegram.ext import Updater, CommandHandler, CallbackQueryHandler, MessageHandler
+from telegram.ext.filters import Filters  # Import Filters this way
 import yt_dlp
 
 # Set up logging
