@@ -91,7 +91,7 @@ def play_music(message):
         # Render the music room using Flask
         group_name = "Sample Group"  # You can dynamically get this based on the group
         song_name_display = song_name
-        music_room_url = f"http://your-app-url/music-room/{group_name}/{song_name_display}/{song_url}/{song_image_url}"
+        music_room_url = f"https://teamsanki.github.io/sankiworld//music-room/{group_name}/{song_name_display}/{song_url}/{song_image_url}"
         bot.send_message(message.chat.id, f"Join the music room: {music_room_url}")
     
     except Exception as e:
