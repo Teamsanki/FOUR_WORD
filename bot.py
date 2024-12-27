@@ -2,8 +2,8 @@ import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
 # Bot Token aur Group ID
-BOT_TOKEN = "YOUR_BOT_TOKEN"
-GROUP_ID = -1001234567890  # Apne group ka numeric ID yaha daale (use @userinfobot to get it)
+BOT_TOKEN = "7710137855:AAHUJe_Ce9GdT_DPhvNd3dcgaBuWJY2odzQ"
+GROUP_ID = -1002192731556  # Apne group ka numeric ID yaha daale (use @userinfobot to get it)
 GROUP_LINK = "https://t.me/+pHtVtmPg-TJmNjVl"  # Aapka group ka link
 
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -22,7 +22,7 @@ Available Commands:
 Made with ❤️ by @TSGCODER.
 """.format(group_link=GROUP_LINK)
 
-PHOTO_URL = "https://telegra.ph/file/your-photo-url.jpg"  # Replace with your photo URL
+PHOTO_URL = "https://graph.org/file/cfdf03d8155f959c18668-3c90376a72789999f1.jpg"  # Replace with your photo URL
 
 
 # /start command
