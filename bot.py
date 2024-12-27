@@ -34,7 +34,8 @@ Available Commands:
 3. /vbv - Check VBV CC.
 4. /gen - Generate CC from BIN.
 5. /amt - Charge CC (subscription required).
-6. /redeem - Redeem codes.
+6. /genrdm - Generate redeem codes (Owner only).
+7. /redeem - Redeem codes.
 
 Made with ❤️ by @TSGCODER.
 """
@@ -111,6 +112,7 @@ def validate_cc(message, command_type):
         # Check if BIN exists in the data
         card_data = CARD_ISSUER_DATA.get(bin_number)
         if card_data:
+            # If card data is found, it's an approved card
             response = f"""
 𝐀𝐩𝐩𝐫𝐨𝐯𝐞𝐝 ✅
 
@@ -126,15 +128,15 @@ Card 𝗜𝗻𝗳𝗼:
 𝗧𝗶𝗺𝗲: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 """
         else:
+            # If no card data is found, it's a declined card
             response = f"""
 𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝 ❌
 
 𝗖𝗮𝗿𝗱: {cc_details[0]}
-𝗥𝐞𝐬𝗽𝐨𝐧𝐬𝐞: Invalid BIN or card details.
+𝗥𝐞𝐬𝐩𝐨𝐧𝐬𝐞: Invalid BIN or card details.
 
 𝗧𝗶𝗺𝗲: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 """
-
         bot.reply_to(message, response)
     except ValueError:
         bot.reply_to(message, "⚠️ Invalid format. Use: `/chk cc_number|dd|mm|code`.")
