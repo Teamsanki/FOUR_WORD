@@ -1,13 +1,13 @@
 import telebot
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
+from datetime import datetime
 import random
 import string
-from datetime import datetime
 
 # Bot Token aur Group ID
 BOT_TOKEN = "7710137855:AAHUJe_Ce9GdT_DPhvNd3dcgaBuWJY2odzQ"
-GROUP_ID = -1002192731556  # Apne group ka numeric ID yaha daale (use @userinfobot to get it)
-GROUP_LINK = "https://t.me/+pHtVtmPg-TJmNjVl"  # Aapka group ka link
+GROUP_ID = -1002192731556  # Replace with your group ID
+GROUP_LINK = "https://t.me/+pHtVtmPg-TJmNjVl"  # Replace with your group link
 OWNER_ID = 7877197608  # Replace with your Telegram ID
 
 bot = telebot.TeleBot(BOT_TOKEN)
@@ -39,11 +39,12 @@ Available Commands:
 Made with ❤️ by @TSGCODER.
 """
 
-# Subscription details
-SUBSCRIBERS = [OWNER_ID]  # Add user IDs who have subscription
-REDEEM_CODES = {}  # Redeem codes storage
-OWNER_USE_LIMIT = 10  # Limit for owner command usage
-owner_command_count = 0
+# Dummy data for card issuer and country details
+CARD_ISSUER_DATA = {
+    "123456": {"issuer": "Example Bank", "type": "Visa", "country": "United States", "flag": "🇺🇸"},
+    "654321": {"issuer": "Test Bank", "type": "MasterCard", "country": "India", "flag": "🇮🇳"},
+    # Add more BINs as needed
+}
 
 
 # /start command
@@ -105,7 +106,11 @@ def validate_cc(message, command_type):
         cc_details = cc_info.split("|")
         if len(cc_details) != 4:
             raise ValueError("Invalid CC format.")
-        if cc_details[0].isdigit() and len(cc_details[0]) == 16:
+        bin_number = cc_details[0][:6]  # First 6 digits for BIN lookup
+
+        # Check if BIN exists in the data
+        card_data = CARD_ISSUER_DATA.get(bin_number)
+        if card_data:
             response = f"""
 𝐀𝐩𝐩𝐫𝐨𝐯𝐞𝐝 ✅
 
@@ -114,8 +119,9 @@ def validate_cc(message, command_type):
 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: Valid
 
 Card 𝗜𝗻𝗳𝗼:
-𝐈𝐬𝐬𝐮𝐞𝐫: Example Bank
-𝐂𝐨𝐮𝐧𝐭𝐫𝐲: Example Country
+𝐈𝐬𝐬𝐮𝐞𝐫: {card_data['issuer']}
+𝐓𝐲𝐩𝐞: {card_data['type']}
+𝐂𝐨𝐮𝐧𝐭𝐫𝐲: {card_data['country']} {card_data['flag']}
 
 𝗧𝗶𝗺𝗲: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 """
@@ -123,9 +129,12 @@ Card 𝗜𝗻𝗳𝗼:
             response = f"""
 𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝 ❌
 
-𝗖𝗮𝗿𝗱: Invalid
-𝗥𝗲𝐬𝗽𝐨𝐧𝐬𝐞: Invalid details provided.
+𝗖𝗮𝗿𝗱: {cc_details[0]}
+𝗥𝐞𝐬𝗽𝐨𝐧𝐬𝐞: Invalid BIN or card details.
+
+𝗧𝗶𝗺𝗲: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
 """
+
         bot.reply_to(message, response)
     except ValueError:
         bot.reply_to(message, "⚠️ Invalid format. Use: `/chk cc_number|dd|mm|code`.")
@@ -151,7 +160,7 @@ def generate_cc(message):
 # /amt command
 @bot.message_handler(commands=['amt'])
 def charge_cc(message):
-    if message.from_user.id not in SUBSCRIBERS:
+    if message.from_user.id not in [OWNER_ID]:
         bot.reply_to(
             message,
             "⚠️ You need a subscription to use this command. Contact @TSGCODER for subscription.",
@@ -172,35 +181,20 @@ def charge_cc(message):
 # /genrdm command
 @bot.message_handler(commands=['genrdm'])
 def generate_redeem_code(message):
-    global owner_command_count
     if message.from_user.id != OWNER_ID:
         bot.reply_to(message, "⚠️ Only the bot owner can use this command.")
-        return
-
-    if owner_command_count >= OWNER_USE_LIMIT:
-        bot.reply_to(message, "⚠️ Command limit reached for generating redeem codes.")
         return
 
     redeem_code = "-".join(
         ["".join(random.choices(string.ascii_uppercase, k=x)) for x in [3, 2, 4, 2]]
     )
-    REDEEM_CODES[redeem_code] = False  # Code not yet redeemed
-    owner_command_count += 1
     bot.reply_to(message, f"✅ Redeem code generated: {redeem_code}")
 
 
 # /redeem command
 @bot.message_handler(commands=['redeem'])
 def redeem_code(message):
-    try:
-        _, code = message.text.split(" ", 1)
-        if code in REDEEM_CODES and not REDEEM_CODES[code]:
-            REDEEM_CODES[code] = True  # Mark as redeemed
-            bot.reply_to(message, "✅ Redeem code successfully used!")
-        else:
-            bot.reply_to(message, "⚠️ Invalid or already used redeem code.")
-    except ValueError:
-        bot.reply_to(message, "⚠️ Invalid format. Use: `/redeem code`.")
+    bot.reply_to(message, "⚠️ Redeem functionality is under development.")
 
 
 # Bot running
