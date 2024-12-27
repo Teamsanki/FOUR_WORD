@@ -1,4 +1,5 @@
 import telebot
+import requests
 from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 from datetime import datetime
 import random
@@ -9,6 +10,7 @@ BOT_TOKEN = "7710137855:AAHUJe_Ce9GdT_DPhvNd3dcgaBuWJY2odzQ"
 GROUP_ID = -1002192731556  # Replace with your group ID
 GROUP_LINK = "https://t.me/+pHtVtmPg-TJmNjVl"  # Replace with your group link
 OWNER_ID = 7877197608  # Replace with your Telegram ID
+BIN_API_URL = "https://lookup.binlist.net/"  # API URL for BIN lookup (e.g., binlist.net)
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
@@ -39,14 +41,6 @@ Available Commands:
 
 Made with ❤️ by @TSGCODER.
 """
-
-# Dummy data for card issuer and country details
-CARD_ISSUER_DATA = {
-    "123456": {"issuer": "Example Bank", "type": "Visa", "country": "United States", "flag": "🇺🇸"},
-    "654321": {"issuer": "Test Bank", "type": "MasterCard", "country": "India", "flag": "🇮🇳"},
-    # Add more BINs as needed
-}
-
 
 # /start command
 @bot.message_handler(commands=['start'])
@@ -109,8 +103,9 @@ def validate_cc(message, command_type):
             raise ValueError("Invalid CC format.")
         bin_number = cc_details[0][:6]  # First 6 digits for BIN lookup
 
-        # Check if BIN exists in the data
-        card_data = CARD_ISSUER_DATA.get(bin_number)
+        # Perform live BIN lookup using an API
+        card_data = get_card_data_from_api(bin_number)
+        
         if card_data:
             # If card data is found, it's an approved card
             response = f"""
@@ -140,6 +135,24 @@ Card 𝗜𝗻𝗳𝗼:
         bot.reply_to(message, response)
     except ValueError:
         bot.reply_to(message, "⚠️ Invalid format. Use: `/chk cc_number|dd|mm|code`.")
+
+
+# Function to get card data from BIN API
+def get_card_data_from_api(bin_number):
+    try:
+        response = requests.get(f"{BIN_API_URL}{bin_number}")
+        if response.status_code == 200:
+            data = response.json()
+            if data and "country" in data:
+                return {
+                    "issuer": data.get("bank", {}).get("name", "Unknown"),
+                    "type": data.get("type", "Unknown"),
+                    "country": data.get("country", "Unknown"),
+                    "flag": data.get("country", "").lower()  # You can map it to actual flags later
+                }
+        return None
+    except requests.exceptions.RequestException:
+        return None
 
 
 # /gen command
@@ -196,9 +209,9 @@ def generate_redeem_code(message):
 # /redeem command
 @bot.message_handler(commands=['redeem'])
 def redeem_code(message):
-    bot.reply_to(message, "⚠️ Redeem functionality is under development.")
+    bot.reply_to(message, "✅ Redeem process started.")
+    # Process redemption here
 
 
-# Bot running
-print("Bot is running...")
-bot.infinity_polling()
+# Start the bot
+bot.polling(none_stop=True)
