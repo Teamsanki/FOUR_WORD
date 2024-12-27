@@ -24,7 +24,7 @@ Commands will only work in the specified group:
 Made with ❤️ by @TSGCODER.
 """.format(group_link=GROUP_LINK)
 
-PHOTO_URL = "https://telegra.ph/file/your-photo-url.jpg"  # Replace with your photo URL
+PHOTO_URL = "https://graph.org/file/cfdf03d8155f959c18668-3c90376a72789999f1.jpg"  # Replace with your photo URL
 
 # Commands message
 COMMANDS_MESSAGE = """\
@@ -34,8 +34,7 @@ Available Commands:
 3. /vbv - Check VBV CC.
 4. /gen - Generate CC from BIN.
 5. /amt - Charge CC (subscription required).
-6. /genrdm - Generate redeem codes (Owner only).
-7. /redeem - Redeem codes.
+6. /redeem - Redeem codes.
 
 Made with ❤️ by @TSGCODER.
 """
