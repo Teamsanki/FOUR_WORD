@@ -1,67 +1,103 @@
-from telegram import Update
-from telegram.ext import CommandHandler, Application, ContextTypes
-import logging
-import random
-import string
+import telebot
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Set up logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+# Bot Token aur Group ID
+BOT_TOKEN = "YOUR_BOT_TOKEN"
+GROUP_ID = -1001234567890  # Apne group ka numeric ID yaha daale (use @userinfobot to get it)
+GROUP_LINK = "https://t.me/+pHtVtmPg-TJmNjVl"  # Aapka group ka link
 
-API_TOKEN = '7589149031:AAHCojdq5OmeGjHhDE8qWKiRwSxtRgN5gGk'  # Replace with your bot token
+bot = telebot.TeleBot(BOT_TOKEN)
 
-# Function to generate a random join code
-def generate_join_code() -> str:
-    sections = [
-        ''.join(random.choices(string.ascii_uppercase + string.digits, k=3)),
-        ''.join(random.choices(string.ascii_uppercase + string.digits, k=5)),
-        ''.join(random.choices(string.ascii_uppercase + string.digits, k=4)),
-        ''.join(random.choices(string.ascii_uppercase + string.digits, k=4)),
-        ''.join(random.choices(string.ascii_uppercase + string.digits, k=2)),
-        ''.join(random.choices(string.ascii_uppercase + string.digits, k=2))
-    ]
-    return '-'.join(sections)
+# Welcome message aur photo URL
+WELCOME_MESSAGE = """\
+Welcome to the bot! 🎉
 
-# Command to ban a user
-async def newgen_ban(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if not update.message.reply_to_message:
-        await update.message.reply_text('Please reply to a user\'s message to ban them.')
+Commands will only work in the specified group:
+[Join the group here]({group_link}).
+
+Available Commands:
+1. /chk - Check CC validity.
+2. /kill - Kill old CCs.
+
+Made with ❤️ by @TSGCODER.
+""".format(group_link=GROUP_LINK)
+
+PHOTO_URL = "https://telegra.ph/file/your-photo-url.jpg"  # Replace with your photo URL
+
+
+# /start command
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    markup = InlineKeyboardMarkup()
+    markup.add(InlineKeyboardButton("Commands", callback_data="commands"))
+    bot.send_photo(
+        message.chat.id,
+        PHOTO_URL,
+        caption=WELCOME_MESSAGE,
+        parse_mode="Markdown",
+        reply_markup=markup,
+    )
+
+
+# Callback for inline button
+@bot.callback_query_handler(func=lambda call: call.data == "commands")
+def show_commands(call):
+    bot.answer_callback_query(call.id, "Commands list!")
+    bot.edit_message_caption(
+        caption=WELCOME_MESSAGE,
+        chat_id=call.message.chat.id,
+        message_id=call.message.message_id,
+        parse_mode="Markdown",
+    )
+
+
+# /chk command
+@bot.message_handler(commands=['chk'])
+def check_cc(message):
+    if message.chat.type != "supergroup" or message.chat.id != GROUP_ID:
+        bot.reply_to(
+            message,
+            "⚠️ This command only works in the group [Join here]({}).".format(GROUP_LINK),
+            parse_mode="Markdown",
+        )
         return
 
-    user_to_ban = update.message.reply_to_message.from_user
     try:
-        await context.bot.kick_chat_member(update.message.chat.id, user_to_ban.id)
-        await update.message.reply_text(f'User {user_to_ban.full_name} has been banned.')
-    except Exception as e:
-        await update.message.reply_text(f'Error banning user: {e}')
+        _, cc_info = message.text.split(" ", 1)
+        cc_details = cc_info.split("|")
+        if len(cc_details) != 4:
+            raise ValueError("Invalid CC format.")
+        # Example CC validation logic (customize as needed)
+        if cc_details[0].isdigit() and len(cc_details[0]) == 16:
+            bot.reply_to(message, "✅ CC is valid!\n\nMade by @TSGCODER.")
+        else:
+            bot.reply_to(message, "❌ CC is invalid!\n\nMade by @TSGCODER.")
+    except ValueError:
+        bot.reply_to(message, "⚠️ Invalid format. Use: `/chk cc_number|dd|mm|code`.")
 
-# Command to generate a join code
-async def joinban(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    join_code = generate_join_code()
-    await update.message.reply_text(f'Use this code to join the group: {join_code}')
 
-# Command to ban a user with a reason
-async def sankiban(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if len(context.args) < 1 or not update.message.reply_to_message:
-        await update.message.reply_text('Usage: /sankiban <reason> (reply to a user)')
+# /kill command
+@bot.message_handler(commands=['kill'])
+def kill_cc(message):
+    if message.chat.type != "supergroup" or message.chat.id != GROUP_ID:
+        bot.reply_to(
+            message,
+            "⚠️ This command only works in the group [Join here]({}).".format(GROUP_LINK),
+            parse_mode="Markdown",
+        )
         return
 
-    user_to_ban = update.message.reply_to_message.from_user
-    reason = ' '.join(context.args)
     try:
-        await context.bot.kick_chat_member(update.message.chat.id, user_to_ban.id)
-        await update.message.reply_text(f'User {user_to_ban.full_name} has been banned for: {reason}')
-    except Exception as e:
-        await update.message.reply_text(f'Error banning user: {e}')
+        _, cc_info = message.text.split(" ", 1)
+        cc_details = cc_info.split("|")
+        if len(cc_details) != 4:
+            raise ValueError("Invalid CC format.")
+        # Example old CC check logic (customize as needed)
+        bot.reply_to(message, "✅ CC has been killed!\n\nMade by @TSGCODER.")
+    except ValueError:
+        bot.reply_to(message, "⚠️ Invalid format. Use: `/kill cc_number|dd|mm|code`.")
 
-# Main function to run the bot
-def main() -> None:
-    application = Application.builder().token(API_TOKEN).build()
 
-    application.add_handler(CommandHandler('newgen', newgen_ban))
-    application.add_handler(CommandHandler('joinban', joinban))
-    application.add_handler(CommandHandler('sankiban', sankiban))
-
-    application.run_polling()
-
-if __name__ == '__main__':
-    main()
+# Bot running
+print("Bot is running...")
+bot.infinity_polling()
