@@ -1,160 +1,102 @@
 import telebot
 import requests
-from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# Bot Token and Group Information
-BOT_TOKEN = "7710137855:AAHUJe_Ce9GdT_DPhvNd3dcgaBuWJY2odzQ"
-GROUP_ID = -1002192731556  # Replace with your group's numeric ID
-GROUP_LINK = "https://t.me/+pHtVtmPg-TJmNjVl"  # Your group's link
-BIN_API_URL = "https://lookup.binlist.net/"  # BIN Lookup API URL
+# Replace with your bot token
+BOT_TOKEN = "7738772255:AAFS3v5fWSvz5sohG2Pyj0lFqHpR6DkVqSA"
+SMM_API_KEY = "8fad2d01e3babd20536bbc56920c9408"
+SMM_API_URL = "https://smmpanel.com/api/v2"
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-# Welcome message and photo URL
-WELCOME_MESSAGE = """\
-Welcome to the bot! 🎉
+# Store user bonus balances (for simplicity, using in-memory storage)
+user_bonus = {}
 
-Commands will only work in the specified group:
-[Join the group here]({group_link}).
-
-Available Commands:
-1. /chk - Check CC validity.
-2. /kill - Kill old CCs.
-3. /vbv - Check VBV CC.
-4. /gen - Generate CCs.
-5. /amt - Charge CC.
-
-Made with ❤️ by @TSGCODER.
-""".format(group_link=GROUP_LINK)
-
-PHOTO_URL = "https://graph.org/file/cfdf03d8155f959c18668-3c90376a72789999f1.jpg"  # Replace with your photo URL
-
-
-# /start command
-@bot.message_handler(commands=['start'])
-def send_welcome(message):
-    markup = InlineKeyboardMarkup()
-    markup.add(InlineKeyboardButton("Commands", callback_data="commands"))
-    bot.send_photo(
-        message.chat.id,
-        PHOTO_URL,
-        caption=WELCOME_MESSAGE,
-        parse_mode="Markdown",
-        reply_markup=markup,
+# Command to start the bot
+@bot.message_handler(commands=["start"])
+def start(message):
+    bot.reply_to(
+        message,
+        "Hello! I am your View Booster Bot.\n\n"
+        "Commands:\n"
+        "/view <link> <amount> - To increase views\n"
+        "/bonus - To claim 300 bonus points\n"
     )
 
-
-# Callback for inline button
-@bot.callback_query_handler(func=lambda call: call.data == "commands")
-def show_commands(call):
-    bot.answer_callback_query(call.id, "Commands list!")
-    bot.edit_message_caption(
-        caption=WELCOME_MESSAGE,
-        chat_id=call.message.chat.id,
-        message_id=call.message.message_id,
-        parse_mode="Markdown",
-    )
-
-
-# Utility function to fetch BIN data
-def get_card_data_from_api(bin_number):
+# Command to increase views
+@bot.message_handler(commands=["view"])
+def increase_views(message):
     try:
-        response = requests.get(f"{BIN_API_URL}{bin_number}")
-        if response.status_code == 200:
-            data = response.json()
-            card_data = {
-                "issuer": data.get("bank", {}).get("name", "Unknown"),
-                "country": data.get("country", {}).get("name", "Unknown"),
-                "flag": data.get("country", {}).get("emoji", ""),  # Country flag
-                "type": data.get("type", "Unknown").capitalize(),
-            }
-            return card_data
-        else:
-            return None
-    except Exception as e:
-        print(f"Error fetching BIN data: {e}")
-        return None
-
-
-# /chk command
-@bot.message_handler(commands=['chk'])
-def check_cc(message):
-    if message.chat.type != "supergroup" or message.chat.id != GROUP_ID:
-        bot.reply_to(
-            message,
-            "⚠️ This command only works in the group [Join here]({}).".format(GROUP_LINK),
-            parse_mode="Markdown",
-        )
-        return
-
-    try:
-        _, cc_info = message.text.split(" ", 1)
-        cc_details = cc_info.split("|")
-        if len(cc_details) != 4:
-            raise ValueError("Invalid CC format.")
-        
-        bin_number = cc_details[0][:6]  # Extract BIN from the first 6 digits
-        card_data = get_card_data_from_api(bin_number)
-        
-        if card_data:
+        args = message.text.split()
+        if len(args) != 3:
             bot.reply_to(
-                message,
-                f"✅ CC is valid!\n\nIssuer: {card_data['issuer']}\n"
-                f"Country: {card_data['country']} {card_data['flag']}\n"
-                f"Type: {card_data['type']}\n\nMade by @TSGCODER."
+                message, "Usage: /view <link> <amount>\nExample: /view https://example.com 500"
             )
+            return
+
+        link = args[1]
+        amount = int(args[2])
+
+        if amount > 1000:
+            bot.reply_to(message, "You cannot request more than 1000 views.")
+            return
+
+        # Check if user has enough bonus points
+        user_id = message.from_user.id
+        if user_id not in user_bonus or user_bonus[user_id] < amount:
+            bot.reply_to(message, "You do not have enough bonus points.")
+            return
+
+        # Deduct bonus points
+        user_bonus[user_id] -= amount
+
+        # Place the order with the SMM Panel
+        params = {
+            "key": SMM_API_KEY,
+            "action": "add",
+            "service": "SERVICE_ID_FOR_VIEWS",  # Replace with the actual service ID for views
+            "link": link,
+            "quantity": amount,
+        }
+        response = requests.post(SMM_API_URL, data=params)
+        data = response.json()
+
+        if data.get("error"):
+            bot.reply_to(message, f"Error: {data['error']}")
         else:
-            bot.reply_to(message, "❌ CC is invalid or BIN not found!\n\nMade by @TSGCODER.")
-    except ValueError:
-        bot.reply_to(message, "⚠️ Invalid format. Use: `/chk cc_number|dd|mm|code`.")
+            order_id = data.get("order")
+            bot.reply_to(
+                message, f"✅ Order successful! Order ID: {order_id}\n{amount} views are being added to your link."
+            )
 
+    except Exception as e:
+        bot.reply_to(message, f"Something went wrong: {e}")
 
-# /kill command
-@bot.message_handler(commands=['kill'])
-def kill_cc(message):
-    if message.chat.type != "supergroup" or message.chat.id != GROUP_ID:
-        bot.reply_to(
-            message,
-            "⚠️ This command only works in the group [Join here]({}).".format(GROUP_LINK),
-            parse_mode="Markdown",
-        )
+# Command to claim bonus
+@bot.message_handler(commands=["bonus"])
+def claim_bonus(message):
+    user_id = message.from_user.id
+
+    if user_id in user_bonus:
+        bot.reply_to(message, "You have already claimed your bonus!")
         return
 
-    try:
-        _, cc_info = message.text.split(" ", 1)
-        cc_details = cc_info.split("|")
-        if len(cc_details) != 4:
-            raise ValueError("Invalid CC format.")
-        
-        # Simulate CC kill logic here
-        bot.reply_to(message, "✅ CC has been killed!\n\nMade by @TSGCODER.")
-    except ValueError:
-        bot.reply_to(message, "⚠️ Invalid format. Use: `/kill cc_number|dd|mm|code`.")
+    # Add bonus points to the user's account
+    user_bonus[user_id] = 300
 
+    # Optionally add the bonus directly to the SMM Panel
+    params = {
+        "key": SMM_API_KEY,
+        "action": "add_balance",
+        "amount": 300,  # Add 300 bonus points
+        "user_id": user_id,
+    }
+    response = requests.post(SMM_API_URL, data=params)
+    data = response.json()
 
-# /vbv command (Check VBV)
-@bot.message_handler(commands=['vbv'])
-def check_vbv(message):
-    if message.chat.type != "supergroup" or message.chat.id != GROUP_ID:
-        bot.reply_to(
-            message,
-            "⚠️ This command only works in the group [Join here]({}).".format(GROUP_LINK),
-            parse_mode="Markdown",
-        )
-        return
+    if data.get("error"):
+        bot.reply_to(message, f"Error: {data['error']}")
+    else:
+        bot.reply_to(message, "🎉 You have received 300 bonus points!")
 
-    try:
-        _, cc_info = message.text.split(" ", 1)
-        cc_details = cc_info.split("|")
-        if len(cc_details) != 4:
-            raise ValueError("Invalid CC format.")
-        
-        # Simulate VBV checking logic here
-        bot.reply_to(message, "✅ VBV check passed!\n\nMade by @TSGCODER.")
-    except ValueError:
-        bot.reply_to(message, "⚠️ Invalid format. Use: `/vbv cc_number|dd|mm|code`.")
-
-
-# Main bot polling
-print("Bot is running...")
-bot.polling(none_stop=True)
+# Polling to keep the bot running
+bot.polling()
