@@ -53,7 +53,7 @@ def increase_views(message):
         params = {
             "key": SMM_API_KEY,
             "action": "add",
-            "service": "SERVICE_ID_FOR_VIEWS",  # Replace with the actual service ID for views
+            "service": "796",  # Replace with the actual service ID for views
             "link": link,
             "quantity": amount,
         }
