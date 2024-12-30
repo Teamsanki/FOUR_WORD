@@ -1,5 +1,5 @@
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes
 
 # Bot Token
 BOT_TOKEN = "7710137855:AAHUJe_Ce9GdT_DPhvNd3dcgaBuWJY2odzQ"
@@ -13,16 +13,20 @@ async def id_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             await update.message.reply_text("Please provide a user ID after /id.")
             return
 
-        # Inline button banate hain
+        if not user_id.isdigit():
+            await update.message.reply_text("Please enter a valid numeric user ID.")
+            return
+
+        # Inline button banate hain with link to numeric ID
         button = InlineKeyboardButton(
             text="DM this user",
-            url=f"https://t.me/{user_id}" if user_id.isdigit() else f"https://t.me/{user_id}"
+            url=f"tg://user?id={user_id}"
         )
         keyboard = InlineKeyboardMarkup([[button]])
 
         # Message ke saath button send karte hain
         await update.message.reply_text(
-            text=f"Click the button below to DM @{user_id} directly:",
+            text=f"Click the button below to DM user with ID {user_id}:",
             reply_markup=keyboard
         )
     except Exception as e:
