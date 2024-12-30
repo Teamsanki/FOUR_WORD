@@ -1,102 +1,43 @@
-import telebot
-import requests
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-# Replace with your bot token
-BOT_TOKEN = "7738772255:AAFS3v5fWSvz5sohG2Pyj0lFqHpR6DkVqSA"
-SMM_API_KEY = "8fad2d01e3babd20536bbc56920c9408"
-SMM_API_URL = "https://smmpanel.com/api/v2"
+# Bot Token
+BOT_TOKEN = "7710137855:AAHUJe_Ce9GdT_DPhvNd3dcgaBuWJY2odzQ"
 
-bot = telebot.TeleBot(BOT_TOKEN)
-
-# Store user bonus balances (for simplicity, using in-memory storage)
-user_bonus = {}
-
-# Command to start the bot
-@bot.message_handler(commands=["start"])
-def start(message):
-    bot.reply_to(
-        message,
-        "Hello! I am your View Booster Bot.\n\n"
-        "Commands:\n"
-        "/view <link> <amount> - To increase views\n"
-        "/bonus - To claim 300 bonus points\n"
-    )
-
-# Command to increase views
-@bot.message_handler(commands=["view"])
-def increase_views(message):
+# /id command handler
+async def id_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
-        args = message.text.split()
-        if len(args) != 3:
-            bot.reply_to(
-                message, "Usage: /view <link> <amount>\nExample: /view https://example.com 500"
-            )
+        # User input se ID lete hain
+        user_id = ' '.join(context.args)
+        if not user_id:
+            await update.message.reply_text("Please provide a user ID after /id.")
             return
 
-        link = args[1]
-        amount = int(args[2])
+        # Inline button banate hain
+        button = InlineKeyboardButton(
+            text="DM this user",
+            url=f"https://t.me/{user_id}" if user_id.isdigit() else f"https://t.me/{user_id}"
+        )
+        keyboard = InlineKeyboardMarkup([[button]])
 
-        if amount > 1000:
-            bot.reply_to(message, "You cannot request more than 1000 views.")
-            return
-
-        # Check if user has enough bonus points
-        user_id = message.from_user.id
-        if user_id not in user_bonus or user_bonus[user_id] < amount:
-            bot.reply_to(message, "You do not have enough bonus points.")
-            return
-
-        # Deduct bonus points
-        user_bonus[user_id] -= amount
-
-        # Place the order with the SMM Panel
-        params = {
-            "key": SMM_API_KEY,
-            "action": "add",
-            "service": "796",  # Replace with the actual service ID for views
-            "link": link,
-            "quantity": amount,
-        }
-        response = requests.post(SMM_API_URL, data=params)
-        data = response.json()
-
-        if data.get("error"):
-            bot.reply_to(message, f"Error: {data['error']}")
-        else:
-            order_id = data.get("order")
-            bot.reply_to(
-                message, f"✅ Order successful! Order ID: {order_id}\n{amount} views are being added to your link."
-            )
-
+        # Message ke saath button send karte hain
+        await update.message.reply_text(
+            text=f"Click the button below to DM @{user_id} directly:",
+            reply_markup=keyboard
+        )
     except Exception as e:
-        bot.reply_to(message, f"Something went wrong: {e}")
+        await update.message.reply_text(f"An error occurred: {e}")
 
-# Command to claim bonus
-@bot.message_handler(commands=["bonus"])
-def claim_bonus(message):
-    user_id = message.from_user.id
+# Main function to run the bot
+def main():
+    app = Application.builder().token(BOT_TOKEN).build()
 
-    if user_id in user_bonus:
-        bot.reply_to(message, "You have already claimed your bonus!")
-        return
+    # Handlers add karte hain
+    app.add_handler(CommandHandler("id", id_command))
 
-    # Add bonus points to the user's account
-    user_bonus[user_id] = 300
+    # Bot ko run karte hain
+    print("Bot is running...")
+    app.run_polling()
 
-    # Optionally add the bonus directly to the SMM Panel
-    params = {
-        "key": SMM_API_KEY,
-        "action": "add_balance",
-        "amount": 300,  # Add 300 bonus points
-        "user_id": user_id,
-    }
-    response = requests.post(SMM_API_URL, data=params)
-    data = response.json()
-
-    if data.get("error"):
-        bot.reply_to(message, f"Error: {data['error']}")
-    else:
-        bot.reply_to(message, "🎉 You have received 300 bonus points!")
-
-# Polling to keep the bot running
-bot.polling()
+if __name__ == "__main__":
+    main()
