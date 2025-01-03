@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 
 # Load environment variables
 load_dotenv()
-TOKEN = os.getenv("MTMyNDgzNzUyNzgwMjA4OTU1NA.GB9AYm.M3E-qwNN0yycJiY9ow6KBl_Jznpu3FtvW31vUA")
+TOKEN = os.getenv("DISCORD_TOKEN")
 
 # Bot setup
 intents = discord.Intents.default()
