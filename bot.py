@@ -1,12 +1,9 @@
 import discord
 from discord.ext import commands
 import random
-import os
-from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
-TOKEN = os.getenv("DISCORD_TOKEN")
+# Enter your bot token directly here
+TOKEN = "MTMyNDgzNzUyNzgwMjA4OTU1NA.Gdmk2a.PfZTr8vFQGa3nvDNQ0YBnpfevA-dBm8gnGOLyQ"
 
 # Bot setup
 intents = discord.Intents.default()
@@ -23,12 +20,12 @@ def get_balance(player_id):
 def update_balance(player_id, amount):
     player_coins[player_id] = get_balance(player_id) + amount
 
-# Bot event: On Ready
+# Event: Bot is ready
 @bot.event
 async def on_ready():
-    print(f"{bot.user} is now online!")
+    print(f"Bot {bot.user} is online!")
 
-# Command: Check Balance
+# Command: Check balance
 @bot.command()
 async def balance(ctx):
     """Check your coin balance."""
