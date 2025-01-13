@@ -1,111 +1,99 @@
-import discord
-from discord.ext import commands
+import os
+import time
 import random
+import re
+from telegram import Update, Bot
+from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
+import requests
 
-# Enter your bot token directly here
-TOKEN = "MTMyNDgzNzUyNzgwMjA4OTU1NA.Gdmk2a.PfZTr8vFQGa3nvDNQ0YBnpfevA-dBm8gnGOLyQ"
+# Fake loading animation
+def loading_screen():
+    return "Loading" + " . " * 3
 
-# Bot setup
-intents = discord.Intents.default()
-bot = commands.Bot(command_prefix="!", intents=intents)
+# Random fake names generator
+def generate_fake_names(count):
+    first_names = ["Alex", "John", "Mike", "Sarah", "Emma", "Linda", "James", "Robert", "Sophia", "Emily"]
+    last_names = ["Smith", "Johnson", "Brown", "Williams", "Jones", "Garcia", "Davis", "Rodriguez", "Martinez", "Hernandez"]
+    full_names = [f"{random.choice(first_names)} {random.choice(last_names)}" for _ in range(count * 2)]
+    return random.sample(full_names, count)  # Ensure unique names
 
-# In-memory database for player coins
-player_coins = {}
+# Validate Telegram ID
+def validate_telegram_id(user_id):
+    if re.match(r"^@[a-zA-Z0-9_]{5,32}$", user_id):
+        return True
+    return False
 
-# Function to get player balance
-def get_balance(player_id):
-    return player_coins.get(player_id, 100)  # Default balance is 100 coins
+# Hacking-style fake report generation
+def hacking_style_report(target_id):
+    report = f"\nTarget User ID: {target_id}\nStatus: SUCCESS\n" + "=" * 40
+    fake_reports = generate_fake_names(40)  # Generate 40 unique fake names
+    for i, name in enumerate(fake_reports, 1):
+        report += f"\n[{i}] Report from: {name}"
+    return report + "\n" + "=" * 40
 
-# Function to update player balance
-def update_balance(player_id, amount):
-    player_coins[player_id] = get_balance(player_id) + amount
+# Start command handler
+def start(update: Update, context: CallbackContext):
+    chat_id = update.message.chat_id
+    welcome_message = """
+    Welcome to the Fake Telegram Member Report Simulator!
+    This is a fake simulator. Everything generated here is just for fun, and no real actions are performed.
+    """
+    
+    # URL of a random image
+    telegraph_image_url = "https://telegra.ph/file/your-image-url.jpg"
+    
+    # Send welcome message and image
+    context.bot.send_message(chat_id, welcome_message)
+    context.bot.send_photo(chat_id, telegraph_image_url, caption="Welcome to the Fake Report Simulator!")
 
-# Event: Bot is ready
-@bot.event
-async def on_ready():
-    print(f"Bot {bot.user} is online!")
-
-# Command: Check balance
-@bot.command()
-async def balance(ctx):
-    """Check your coin balance."""
-    coins = get_balance(ctx.author.id)
-    await ctx.send(f"{ctx.author.mention}, you have **{coins} coins**.")
-
-# Command: Coin Flip
-@bot.command()
-async def flip(ctx, bet: int, choice: str):
-    """Flip a coin! Bet on 'heads' or 'tails'."""
-    if choice.lower() not in ["heads", "tails"]:
-        await ctx.send("Please bet on 'heads' or 'tails'.")
+# Report command handler
+def report(update: Update, context: CallbackContext):
+    chat_id = update.message.chat_id
+    user_input = update.message.text.split()
+    
+    # Check if user provided a Telegram ID
+    if len(user_input) < 2:
+        context.bot.send_message(chat_id, "Please provide a Telegram User ID (e.g., /rp @username).")
         return
 
-    coins = get_balance(ctx.author.id)
-    if bet > coins:
-        await ctx.send("You don't have enough coins to make this bet!")
+    target_id = user_input[1].strip()
+
+    if not validate_telegram_id(target_id):
+        context.bot.send_message(chat_id, "Invalid Telegram ID! Please provide a valid ID starting with '@'.")
         return
 
-    result = random.choice(["heads", "tails"])
-    if result == choice.lower():
-        update_balance(ctx.author.id, bet)
-        await ctx.send(f"The coin landed on **{result}**! You won {bet} coins!")
-    else:
-        update_balance(ctx.author.id, -bet)
-        await ctx.send(f"The coin landed on **{result}**. You lost {bet} coins.")
+    # Show progress (fake loading)
+    context.bot.send_message(chat_id, "Generating fake report... Please wait.")
+    time.sleep(2)  # Simulate loading
 
-# Command: Slot Machine
-@bot.command()
-async def slot(ctx, bet: int):
-    """Play the slot machine!"""
-    coins = get_balance(ctx.author.id)
-    if bet > coins:
-        await ctx.send("You don't have enough coins to play!")
-        return
+    # Generate fake report
+    report_content = hacking_style_report(target_id)
 
-    # Slot symbols
-    symbols = ["🍒", "🍋", "🍇", "🔔", "⭐"]
-    slots = [random.choice(symbols) for _ in range(3)]
-    await ctx.send(f"🎰 {' | '.join(slots)} 🎰")
+    # Send generated report
+    context.bot.send_message(chat_id, report_content)
 
-    if len(set(slots)) == 1:  # All symbols match
-        winnings = bet * 5
-        update_balance(ctx.author.id, winnings)
-        await ctx.send(f"Jackpot! You won {winnings} coins!")
-    elif len(set(slots)) == 2:  # Two symbols match
-        winnings = bet * 2
-        update_balance(ctx.author.id, winnings)
-        await ctx.send(f"Nice! You won {winnings} coins!")
-    else:
-        update_balance(ctx.author.id, -bet)
-        await ctx.send("Better luck next time!")
+# Error handling (in case of an invalid command)
+def error(update: Update, context: CallbackContext):
+    print(f"Error: {context.error}")
 
-# Command: Blackjack (Simple Version)
-@bot.command()
-async def blackjack(ctx, bet: int):
-    """Play Blackjack!"""
-    coins = get_balance(ctx.author.id)
-    if bet > coins:
-        await ctx.send("You don't have enough coins to play!")
-        return
+def main():
+    # Replace with your bot token
+    bot_token = 'YOUR_BOT_TOKEN'
 
-    def draw_card():
-        return random.randint(1, 11)  # Simulates a card draw
+    # Create Updater and Dispatcher
+    updater = Updater(token=bot_token, use_context=True)
+    dispatcher = updater.dispatcher
 
-    player_score = draw_card() + draw_card()
-    dealer_score = draw_card() + draw_card()
+    # Command handlers
+    dispatcher.add_handler(CommandHandler('start', start))
+    dispatcher.add_handler(CommandHandler('rp', report))
 
-    await ctx.send(f"Your cards total: **{player_score}**")
-    await ctx.send(f"Dealer's cards total: **{dealer_score}**")
+    # Error handler
+    dispatcher.add_error_handler(error)
 
-    if player_score > 21:
-        update_balance(ctx.author.id, -bet)
-        await ctx.send("You busted! Dealer wins!")
-    elif dealer_score > 21 or player_score > dealer_score:
-        update_balance(ctx.author.id, bet)
-        await ctx.send("You win!")
-    else:
-        update_balance(ctx.author.id, -bet)
-        await ctx.send("Dealer wins!")
+    # Start the bot
+    updater.start_polling()
+    updater.idle()
 
-# Run the bot
-bot.run(TOKEN)
+if __name__ == '__main__':
+    main()
