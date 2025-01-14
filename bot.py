@@ -40,7 +40,7 @@ def start(update: Update, context: CallbackContext):
     """
     
     # URL of a random image
-    telegraph_image_url = "https://telegra.ph/file/your-image-url.jpg"
+    telegraph_image_url = "https://graph.org/file/2e37a57d083183ea24761-9cc38246fecc1af393.jpg"
     
     # Send welcome message and image
     context.bot.send_message(chat_id, welcome_message)
@@ -78,7 +78,7 @@ def error(update: Update, context: CallbackContext):
 
 def main():
     # Replace with your bot token
-    bot_token = 'YOUR_BOT_TOKEN'
+    bot_token = '7869282132:AAFPwZ8ZrFNQxUOPgAbgDm1oInXzDx5Wk74'
 
     # Create Updater and Dispatcher
     updater = Updater(token=bot_token, use_context=True)
