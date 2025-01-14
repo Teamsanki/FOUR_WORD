@@ -3,8 +3,11 @@ import time
 import random
 import re
 from telegram import Update, Bot
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters, CallbackContext
-import requests
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    ContextTypes,
+)
 
 # Fake loading animation
 def loading_screen():
@@ -32,68 +35,60 @@ def hacking_style_report(target_id):
     return report + "\n" + "=" * 40
 
 # Start command handler
-def start(update: Update, context: CallbackContext):
-    chat_id = update.message.chat_id
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
     welcome_message = """
     Welcome to the Fake Telegram Member Report Simulator!
     This is a fake simulator. Everything generated here is just for fun, and no real actions are performed.
     """
-    
+
     # URL of a random image
     telegraph_image_url = "https://graph.org/file/2e37a57d083183ea24761-9cc38246fecc1af393.jpg"
-    
+
     # Send welcome message and image
-    context.bot.send_message(chat_id, welcome_message)
-    context.bot.send_photo(chat_id, telegraph_image_url, caption="Welcome to the Fake Report Simulator!")
+    await context.bot.send_message(chat_id, welcome_message)
+    await context.bot.send_photo(chat_id, telegraph_image_url, caption="Welcome to the Fake Report Simulator!")
 
 # Report command handler
-def report(update: Update, context: CallbackContext):
-    chat_id = update.message.chat_id
+async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
     user_input = update.message.text.split()
-    
+
     # Check if user provided a Telegram ID
     if len(user_input) < 2:
-        context.bot.send_message(chat_id, "Please provide a Telegram User ID (e.g., /rp @username).")
+        await context.bot.send_message(chat_id, "Please provide a Telegram User ID (e.g., /rp @username).")
         return
 
     target_id = user_input[1].strip()
 
     if not validate_telegram_id(target_id):
-        context.bot.send_message(chat_id, "Invalid Telegram ID! Please provide a valid ID starting with '@'.")
+        await context.bot.send_message(chat_id, "Invalid Telegram ID! Please provide a valid ID starting with '@'.")
         return
 
     # Show progress (fake loading)
-    context.bot.send_message(chat_id, "Generating fake report... Please wait.")
+    await context.bot.send_message(chat_id, "Generating fake report... Please wait.")
     time.sleep(2)  # Simulate loading
 
     # Generate fake report
     report_content = hacking_style_report(target_id)
 
     # Send generated report
-    context.bot.send_message(chat_id, report_content)
+    await context.bot.send_message(chat_id, report_content)
 
-# Error handling (in case of an invalid command)
-def error(update: Update, context: CallbackContext):
-    print(f"Error: {context.error}")
-
+# Main function
 def main():
     # Replace with your bot token
     bot_token = '7869282132:AAFPwZ8ZrFNQxUOPgAbgDm1oInXzDx5Wk74'
 
-    # Create Updater and Dispatcher
-    updater = Updater(token=bot_token, use_context=True)
-    dispatcher = updater.dispatcher
+    # Create Application
+    application = ApplicationBuilder().token(bot_token).build()
 
     # Command handlers
-    dispatcher.add_handler(CommandHandler('start', start))
-    dispatcher.add_handler(CommandHandler('rp', report))
-
-    # Error handler
-    dispatcher.add_error_handler(error)
+    application.add_handler(CommandHandler('start', start))
+    application.add_handler(CommandHandler('rp', report))
 
     # Start the bot
-    updater.start_polling()
-    updater.idle()
+    application.run_polling()
 
 if __name__ == '__main__':
     main()
