@@ -84,7 +84,6 @@ async def process_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_details = await context.bot.get_chat(user_input)
         target_name = user_details.full_name if user_details.full_name else user_details.username
     except Exception as e:
-        target_name = "Unknown"  # If unable to fetch the name, fallback to Unknown
 
     # Inline buttons for confirm/cancel
     buttons = [
@@ -117,11 +116,10 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
         for i in range(1, 21):
             reporter_name = random.choice(INDIAN_NAMES)
             message = await query.message.reply_text(
-                f"**[Report {i}]**\n"
-                f"**Target ID:** {target_id}\n"
-                f"**Target Name:** {target_name}\n"
-                f"**Reporter Name:** {reporter_name}\n"
-                f"**Status:** Processing..."
+                f"[Report {i}]**\n"
+                f"🆔Target ID:{target_id}\n"
+                f"👀Reporter Name: {reporter_name}\n"
+                f"✨Status: Processing..."
             )
             report_messages.append(message)
             await asyncio.sleep(0.5)  # Small delay between reports
