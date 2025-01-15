@@ -43,7 +43,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_joined:
         # Custom menu button
         menu_keyboard = [
-            ["/rp"]
+            ["🆔Report"]
         ]
         reply_markup = ReplyKeyboardMarkup(menu_keyboard, resize_keyboard=True)
 
@@ -55,9 +55,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         # Request user to join the channels
         buttons = [
-            [InlineKeyboardButton("Join Channel 1", url=CHANNELS[0])],
-            [InlineKeyboardButton("Join Channel 2", url=CHANNELS[1])],
-            [InlineKeyboardButton("Join Channel 3", url=CHANNELS[2])],
+            [InlineKeyboardButton("Join", url=CHANNELS[0])],
+            [InlineKeyboardButton("Join", url=CHANNELS[1])],
+            [InlineKeyboardButton("Join", url=CHANNELS[2])],
         ]
         reply_markup = InlineKeyboardMarkup(buttons)
 
@@ -141,15 +141,23 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
 # Step 5: Fake Processing Animation
 async def fake_processing(query):
     # Initial processing message
-    progress_message = await query.message.reply_text("Processing...\n_")
+    progress_message = await query.message.reply_text("Processing...\n▬")
+    
+    # Progress steps up to 100%
     progress_steps = [
-        "_", "___", "_____", "_______", "_________",
-        "_____________", "_________________", "_______________________",
-        "__________________________", "_______________________________"
+        "▬", "▬▬", "▬▬▬", "▬▬▬▬", "▬▬▬▬▬",
+        "▬▬▬▬▬▬", "▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬",
+        "▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+        "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+        "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", 
+        "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+        "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
+        "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬"
     ]
+
     for i, step in enumerate(progress_steps, 1):
-        percentage = i * 10  # Calculate percentage
-        await asyncio.sleep(6)  # Wait 6 seconds for each step (10 steps * 6s = ~1 min)
+        percentage = i * 4  # Calculate percentage (since there are 25 steps, each step = 4%)
+        await asyncio.sleep(2)  # Wait 2 seconds for each step
         await progress_message.edit_text(
             f"Processing...\n{step}\nProgress: {percentage}%"
         )
@@ -159,7 +167,7 @@ async def fake_processing(query):
 
 # Main Function
 def main():
-    bot_token = 'YOUR_BOT_TOKEN'
+    bot_token = '7869282132:AAFPwZ8ZrFNQxUOPgAbgDm1oInXzDx5Wk74'
 
     application = ApplicationBuilder().token(bot_token).build()
 
