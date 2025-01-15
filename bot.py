@@ -12,7 +12,6 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
-import asyncio
 import random
 
 # List of Indian names for fake reporters
@@ -36,7 +35,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(
         chat_id,
-        "Welcome to Telegram Id Report!\n\nMake Id to Slow Down With Your Target Id\n\nClick on Report Menu Button Then enter Target User Id.",
+        "Welcome to Telegram Id Report!\n\nClick on Report Menu Button to Enter Target User Id.",
         reply_markup=reply_markup,
     )
 
@@ -45,14 +44,14 @@ async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     await context.bot.send_message(
         chat_id,
-        "Kis user ko report karna chahte hain? ID dein (e.g., 123456789)."
+        "Please enter the Target User ID (e.g., 123456789)."
     )
 
 # Step 3: Process User Input and Fetch Target Name (After user enters ID)
 async def process_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text.strip()
 
-    # Only check for valid ID if user has provided an input
+    # Check if the user input is a valid numeric ID
     if not user_input.isdigit():
         await update.message.reply_text("Invalid ID. Please enter a valid numeric ID.")
         return
@@ -71,7 +70,7 @@ async def process_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(
         update.effective_chat.id,
-        f"Aapko '{target_name}' ko report karna hai? (Target ID: {target_id})",
+        f"Do you want to report '{target_name}'? (Target ID: {target_id})",
         reply_markup=reply_markup
     )
 
