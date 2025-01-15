@@ -84,6 +84,8 @@ async def process_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_details = await context.bot.get_chat(user_input)
         target_name = user_details.full_name if user_details.full_name else user_details.username
     except Exception as e:
+        # Handle exception
+        await update.message.reply_text(f"Error fetching user details: {str(e)}")
 
     # Inline buttons for confirm/cancel
     buttons = [
