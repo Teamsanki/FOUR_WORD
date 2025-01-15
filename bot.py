@@ -134,7 +134,7 @@ async def fake_processing(query):
 
 # Main Function
 def main():
-    bot_token = 'YOUR_BOT_TOKEN'
+    bot_token = '7869282132:AAFPwZ8ZrFNQxUOPgAbgDm1oInXzDx5Wk74'
 
     application = ApplicationBuilder().token(bot_token).build()
 
