@@ -25,47 +25,21 @@ INDIAN_NAMES = [
     "Rajeev Nair", "Megha Jain", "Karan Kapoor", "Sonal Bansal"
 ]
 
-# Channel Links
-CHANNELS = [
-    "https://t.me/Teamsankinetworkk",
-    "https://t.me/SANKI_MEMES",
-    "https://t.me/SankiProfession"
-]
-
 # Step 1: Start Command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
 
-    # Check if user has joined all channels
-    user = await context.bot.get_chat_member(CHANNELS[0], chat_id)
-    user_joined = all(await context.bot.get_chat_member(channel, chat_id) for channel in CHANNELS)
+    # Custom menu button
+    menu_keyboard = [
+        ["🆔Report"]
+    ]
+    reply_markup = ReplyKeyboardMarkup(menu_keyboard, resize_keyboard=True)
 
-    if user_joined:
-        # Custom menu button
-        menu_keyboard = [
-            ["🆔Report"]
-        ]
-        reply_markup = ReplyKeyboardMarkup(menu_keyboard, resize_keyboard=True)
-
-        await context.bot.send_message(
-            chat_id,
-            "Welcome to Telegram Id Report!\n\nMake Id to Slow Down With Your Target Id\n\nClick on Report Menu Button Then enter Target User Id.",
-            reply_markup=reply_markup,
-        )
-    else:
-        # Request user to join the channels
-        buttons = [
-            [InlineKeyboardButton("Join", url=CHANNELS[0])],
-            [InlineKeyboardButton("Join", url=CHANNELS[1])],
-            [InlineKeyboardButton("Join", url=CHANNELS[2])],
-        ]
-        reply_markup = InlineKeyboardMarkup(buttons)
-
-        await context.bot.send_message(
-            chat_id,
-            "Please join the following channels to start using the bot:\n",
-            reply_markup=reply_markup
-        )
+    await context.bot.send_message(
+        chat_id,
+        "Welcome to Telegram Id Report!\n\nMake Id to Slow Down With Your Target Id\n\nClick on Report Menu Button Then enter Target User Id.",
+        reply_markup=reply_markup,
+    )
 
 # Step 2: /rp Command
 async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -167,7 +141,7 @@ async def fake_processing(query):
 
 # Main Function
 def main():
-    bot_token = '7869282132:AAFPwZ8ZrFNQxUOPgAbgDm1oInXzDx5Wk74'
+    bot_token = 'YOUR_BOT_TOKEN'  # Update with your actual bot token
 
     application = ApplicationBuilder().token(bot_token).build()
 
