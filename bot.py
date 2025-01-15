@@ -4,7 +4,6 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
-from telegram.constants import ParseMode
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -13,8 +12,8 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
-import asyncio
 import random
+import asyncio
 
 # List of Indian names for fake reporters
 INDIAN_NAMES = [
@@ -46,25 +45,22 @@ async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     await context.bot.send_message(
         chat_id,
-        "Kis user ko report karna chahte hain? Username ya ID dein (e.g., @username or 123456789)."
+        "Kis user ko report karna chahte hain? Apna Target User ID dein (numeric ID jaise: 123456789)."
     )
 
-# Step 3: Process User Input and Fetch Target Name
+# Step 3: Process User Input and Validate Target ID
 async def process_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text.strip()
 
-    try:
-        # Fetch user details using Telegram's `get_chat` method
-        user_details = await context.bot.get_chat(user_input)
-        target_name = user_details.full_name if user_details.full_name else user_details.username
-    except Exception as e:
-        # Handle exception
-        await update.message.reply_text(f"Error fetching user details: {str(e)}")
+    # Check if the user input is a valid numeric ID
+    if not user_input.isdigit():
+        await update.message.reply_text("Kripya valid numeric User ID dein (jaise: 123456789).")
+        return
 
     # Inline buttons for confirm/cancel
     buttons = [
         [
-            InlineKeyboardButton("✅ Confirm", callback_data=f"confirm:{user_input}:{target_name}"),
+            InlineKeyboardButton("✅ Confirm", callback_data=f"confirm:{user_input}"),
             InlineKeyboardButton("❌ Cancel", callback_data="cancel"),
         ]
     ]
@@ -72,7 +68,7 @@ async def process_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(
         update.effective_chat.id,
-        f"Aapko '{target_name}' ko report karna hai? (Target ID: {user_input})",
+        f"Aapko '{user_input}' ko report karna hai? (Target ID: {user_input})",
         reply_markup=reply_markup
     )
 
@@ -82,12 +78,10 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
     data = query.data
 
     if data.startswith("confirm:"):
-        target_data = data.split(":")
-        target_id = target_data[1]
-        target_name = target_data[2]
-        await query.edit_message_text(f"Reporting initiated for:\n**Target ID:** {target_id}\n**Target Name:** {target_name}")
+        target_id = data.split(":")[1]
+        await query.edit_message_text(f"Reporting initiated for:\n**Target ID:** {target_id}")
 
-        # Step 4.1: Generate 20 fake reports with processing
+        # Generate 20 fake reports with processing
         report_messages = []
         for i in range(1, 21):
             reporter_name = random.choice(INDIAN_NAMES)
@@ -98,12 +92,11 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"✨Status: Processing..."
             )
             report_messages.append(message)
-            await asyncio.sleep(0.5)  # Small delay between reports
 
-        # Step 4.2: Start final fake processing
+        # Fake processing
         await fake_processing(query)
 
-        # Step 4.3: Update reports to "Success"
+        # Update reports to "Success"
         for message in report_messages:
             await message.edit_text(
                 message.text.replace("Processing...", "✅ Success")
@@ -137,11 +130,11 @@ async def fake_processing(query):
         )
 
     # Final message after processing completes
-    await progress_message.edit_text("Processing complete! ✅\n\n All Report Is Sucessfully Done✨ Made By @ll_SANKI_II.")
+    await progress_message.edit_text("Processing complete! ✅\nAll fake reports have been submitted successfully.")
 
 # Main Function
 def main():
-    bot_token = '7869282132:AAFPwZ8ZrFNQxUOPgAbgDm1oInXzDx5Wk74'  # Update with your actual bot token
+    bot_token = 'YOUR_BOT_TOKEN'
 
     application = ApplicationBuilder().token(bot_token).build()
 
