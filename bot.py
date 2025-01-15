@@ -2,21 +2,17 @@ import os
 import time
 import random
 import re
-from telegram import Update, Bot
+from telegram import Update, Bot, ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     ContextTypes,
 )
 
-# Fake loading animation
-def loading_screen():
-    return "Loading" + " . " * 3
-
-# Random fake names generator
+# Random fake Indian names generator
 def generate_fake_names(count):
-    first_names = ["Alex", "John", "Mike", "Sarah", "Emma", "Linda", "James", "Robert", "Sophia", "Emily"]
-    last_names = ["Smith", "Johnson", "Brown", "Williams", "Jones", "Garcia", "Davis", "Rodriguez", "Martinez", "Hernandez"]
+    first_names = ["Raj", "Amit", "Rahul", "Priya", "Anjali", "Sunil", "Pooja", "Vikram", "Kiran", "Sneha"]
+    last_names = ["Sharma", "Verma", "Gupta", "Mehra", "Patel", "Yadav", "Singh", "Kumar", "Malhotra", "Desai"]
     full_names = [f"{random.choice(first_names)} {random.choice(last_names)}" for _ in range(count * 2)]
     return random.sample(full_names, count)  # Ensure unique names
 
@@ -27,27 +23,42 @@ def validate_telegram_id(user_id):
     return False
 
 # Hacking-style fake report generation
-def hacking_style_report(target_id):
-    report = f"\nTarget User ID: {target_id}\nStatus: SUCCESS\n" + "=" * 40
-    fake_reports = generate_fake_names(40)  # Generate 40 unique fake names
-    for i, name in enumerate(fake_reports, 1):
-        report += f"\n[{i}] Report from: {name}"
-    return report + "\n" + "=" * 40
+def hacking_style_report(target_id, index, name):
+    report = f"""
+[Report {index}]
+Target User ID: {target_id}
+Reported by: {name}
+Status: SUCCESS
+"""
+    return report
 
 # Start command handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    welcome_message = """
-    Welcome to the Fake Telegram Member Report Simulator!
-    This is a fake simulator. Everything generated here is just for fun, and no real actions are performed.
-    """
 
-    # URL of a random image
+    welcome_message = """
+Welcome to the Fake Telegram Member Report Simulator!
+This is just for fun, and no real actions are performed.
+Use the menu below to navigate:
+- /rp [@username]: Generate Fake Report
+"""
+
     telegraph_image_url = "https://graph.org/file/2e37a57d083183ea24761-9cc38246fecc1af393.jpg"
 
+    # Custom keyboard
+    custom_keyboard = [
+        ["/rp @username"]
+    ]
+    reply_markup = ReplyKeyboardMarkup(custom_keyboard, resize_keyboard=True)
+
     # Send welcome message and image
+    await context.bot.send_photo(
+        chat_id,
+        telegraph_image_url,
+        caption="Welcome to the Fake Telegram Member Report Simulator!",
+        reply_markup=reply_markup
+    )
     await context.bot.send_message(chat_id, welcome_message)
-    await context.bot.send_photo(chat_id, telegraph_image_url, caption="Welcome to the Fake Report Simulator!")
 
 # Report command handler
 async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -66,14 +77,17 @@ async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     # Show progress (fake loading)
-    await context.bot.send_message(chat_id, "Generating fake report... Please wait.")
-    time.sleep(2)  # Simulate loading
+    await context.bot.send_message(chat_id, "Generating fake reports... Please wait.")
 
-    # Generate fake report
-    report_content = hacking_style_report(target_id)
+    # Generate and send reports one by one
+    fake_reports = generate_fake_names(40)  # Generate 40 unique fake names
+    for i, name in enumerate(fake_reports, 1):
+        # Simulate delay for each report
+        time.sleep(1)
+        report_content = hacking_style_report(target_id, i, name)
+        await context.bot.send_message(chat_id, report_content)
 
-    # Send generated report
-    await context.bot.send_message(chat_id, report_content)
+    await context.bot.send_message(chat_id, "All fake reports have been generated!")
 
 # Main function
 def main():
