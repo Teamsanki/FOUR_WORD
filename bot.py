@@ -4,7 +4,6 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
-from telegram.constants import ParseMode
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -107,53 +106,53 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
         target_id = data.split(":")[1]
         await query.edit_message_text(f"Reporting initiated for:\n**Target ID:** {target_id}")
 
-        # Step 4.1: Generate 20 fake reports with processing
-        report_messages = []
+        # Step 4.1: Generate 20 fake reports with processing in parallel
+        tasks = []
         for i in range(1, 21):
             reporter_name = random.choice(INDIAN_NAMES)
-            message = await query.message.reply_text(
-                f"[Report {i}]**\n"
-                f"🆔Target ID:{target_id}\n"
-                f"👀Reporter Name: {reporter_name}\n"
-                f"✨Status: Processing..."
+            tasks.append(
+                send_report(query, target_id, i, reporter_name)
             )
-            report_messages.append(message)
-            await asyncio.sleep(5)  # 5-second gap between reports
 
-        # Step 4.2: Start final fake processing
+        # Step 4.2: Run tasks concurrently with minimal delay
+        await asyncio.gather(*tasks)
+
         await fake_processing(query)
 
         # Step 4.3: Update reports to "Success"
-        for message in report_messages:
-            await message.edit_text(
-                message.text.replace("Processing...", "✅ Success")
-            )
+        for task in tasks:
+            await task
 
     elif data == "cancel":
         await query.edit_message_text("Report process cancelled.")
 
-# Step 5: Fake Processing Animation
+# Step 5: Send Report Message
+async def send_report(query, target_id, report_num, reporter_name):
+    await query.message.reply_text(
+        f"[Report {report_num}]**\n"
+        f"🆔Target ID:{target_id}\n"
+        f"👀Reporter Name: {reporter_name}\n"
+        f"✨Status: Processing..."
+    )
+    await asyncio.sleep(5)  # small delay for simulation
+
+# Step 6: Fake Processing Animation
 async def fake_processing(query):
-    # Initial processing message
     progress_message = await query.message.reply_text("Processing...\n▬")
     
-    # Progress steps up to 100%
     progress_steps = [
         "▬", "▬▬", "▬▬▬", "▬▬▬▬", "▬▬▬▬▬",
         "▬▬▬▬▬▬", "▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬",
-        "▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
-        "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
-        "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬", "▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬",
     ]
 
     for step in progress_steps:
-        await asyncio.sleep(3)
+        await asyncio.sleep(0.5)
         await progress_message.edit_text(f"Processing...\n{step}")
 
     # Final 100% completion
     await progress_message.edit_text("✅ Report Successful!")
 
-# Step 6: Main
+# Main bot setup
 def main():
     app = ApplicationBuilder().token('7869282132:AAFPwZ8ZrFNQxUOPgAbgDm1oInXzDx5Wk74').build()
 
