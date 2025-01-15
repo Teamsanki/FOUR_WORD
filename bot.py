@@ -4,6 +4,7 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
+from telegram.constants import ParseMode
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -12,6 +13,7 @@ from telegram.ext import (
     ContextTypes,
     filters,
 )
+import asyncio
 import random
 
 # List of Indian names for fake reporters
@@ -20,7 +22,15 @@ INDIAN_NAMES = [
     "Sunil Desai", "Ritu Singh", "Aman Kumar", "Kavita Joshi",
     "Ankit Malhotra", "Pooja Gupta", "Arjun Thakur", "Nisha Aggarwal",
     "Rohan Chauhan", "Simran Kaur", "Vivek Tripathi", "Aarti Pandey",
-    "Rajeev Nair", "Megha Jain", "Karan Kapoor", "Sonal Bansal"
+    "Rajeev Nair", "Megha Jain", "Karan Kapoor", "Sonal Bansal",
+    "Sumit Kumar", "Ananya Sharma", "Mohit Yadav", "Aishwarya Reddy",
+    "Siddharth Singh", "Neha Tiwari", "Manoj Kumar", "Kriti Gupta",
+    "Nitin Soni", "Isha Verma", "Vikas Chaudhary", "Tanya Rai",
+    "Shubham Arora", "Divya Deshmukh", "Harsh Rajput", "Shivani Thakur",
+    "Ravi Patel", "Geeta Soni", "Shubhi Pandey", "Rajesh Sharma",
+    "Deepika Bansal", "Krishna Yadav", "Rohit Kumar", "Pratiksha Jain",
+    "Ashok Kumar", "Harpreet Kaur", "Nandini Mehta", "Madhurima Das",
+    "Abhinav Verma", "Ravina Chaudhary"
 ]
 
 # Step 1: Start Command
@@ -35,34 +45,34 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(
         chat_id,
-        "Welcome to Telegram Id Report!\n\nClick on Report Menu Button to Enter Target User Id.",
+        "Welcome to Telegram Id Report!\n\nMake Id to Slow Down With Your Target Id\n\nClick on Report Menu Button Then enter Target User Id.",
         reply_markup=reply_markup,
     )
 
-# Step 2: /rp Command (When the user presses "🆔Report")
+# Step 2: /rp Command
 async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     await context.bot.send_message(
         chat_id,
-        "Please enter the Target User ID (e.g., 123456789)."
+        "Kis user ko report karna chahte hain? Username ya ID dein (e.g., @username or 123456789)."
     )
 
-# Step 3: Process User Input and Fetch Target Name (After user enters ID)
+# Step 3: Process User Input and Fetch Target Name
 async def process_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text.strip()
 
-    # Check if the user input is a valid numeric ID
-    if not user_input.isdigit():
-        await update.message.reply_text("Invalid ID. Please enter a valid numeric ID.")
-        return
-
-    target_id = user_input
-    target_name = f"User_{target_id}"  # Here you can customize based on the ID format.
+    try:
+        # Fetch user details using Telegram's `get_chat` method
+        user_details = await context.bot.get_chat(user_input)
+        target_name = user_details.full_name if user_details.full_name else user_details.username
+    except Exception as e:
+        # Handle exception
+        await update.message.reply_text(f"Error fetching user details: {str(e)}")
 
     # Inline buttons for confirm/cancel
     buttons = [
         [
-            InlineKeyboardButton("✅ Confirm", callback_data=f"confirm:{target_id}:{target_name}"),
+            InlineKeyboardButton("✅ Confirm", callback_data=f"confirm:{user_input}:{target_name}"),
             InlineKeyboardButton("❌ Cancel", callback_data="cancel"),
         ]
     ]
@@ -70,7 +80,7 @@ async def process_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await context.bot.send_message(
         update.effective_chat.id,
-        f"Do you want to report '{target_name}'? (Target ID: {target_id})",
+        f"Aapko '{target_name}' ko report karna hai? (Target ID: {user_input})",
         reply_markup=reply_markup
     )
 
@@ -87,8 +97,10 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
 
         # Step 4.1: Generate 20 fake reports with processing
         report_messages = []
+        used_names = set()  # To track names that have already been used
         for i in range(1, 21):
-            reporter_name = random.choice(INDIAN_NAMES)
+            reporter_name = random.choice([name for name in INDIAN_NAMES if name not in used_names])
+            used_names.add(reporter_name)
             message = await query.message.reply_text(
                 f"[Report {i}]**\n"
                 f"🆔Target ID:{target_id}\n"
@@ -96,7 +108,7 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
                 f"✨Status: Processing..."
             )
             report_messages.append(message)
-            await asyncio.sleep(5)  # 5-second delay between reports
+            await asyncio.sleep(0.5)  # Small delay between reports
 
         # Step 4.2: Start final fake processing
         await fake_processing(query)
@@ -114,7 +126,7 @@ async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE
 async def fake_processing(query):
     # Initial processing message
     progress_message = await query.message.reply_text("Processing...\n▬")
-
+    
     # Progress steps up to 100%
     progress_steps = [
         "▬", "▬▬", "▬▬▬", "▬▬▬▬", "▬▬▬▬▬",
@@ -139,7 +151,7 @@ async def fake_processing(query):
 
 # Main Function
 def main():
-    bot_token = '7869282132:AAFPwZ8ZrFNQxUOPgAbgDm1oInXzDx5Wk74'
+    bot_token = '7869282132:AAFPwZ8ZrFNQxUOPgAbgDm1oInXzDx5Wk74'  # Update with your actual bot token
 
     application = ApplicationBuilder().token(bot_token).build()
 
