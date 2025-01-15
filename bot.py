@@ -8,9 +8,9 @@ from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
-    Filters,
     CallbackQueryHandler,
     ContextTypes,
+    filters,
 )
 import asyncio
 import random
@@ -30,13 +30,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Add custom menu keyboard with /rp button
     menu_keyboard = [
-        ["🆔Report"]
+        ["/rp"]
     ]
     reply_markup = ReplyKeyboardMarkup(menu_keyboard, resize_keyboard=True)
 
     await context.bot.send_message(
         chat_id,
-        "Welcome to Telegram Fake Reporter Bot!\n\nUse the menu button below to start reporting.",
+        "Welcome to Telegram Id Report!\n\nMake Id to Slow Down With Your Target Id\n\nClick on Report Menu Button Then enter Traget User Id.",
         reply_markup=reply_markup,
     )
 
@@ -139,7 +139,7 @@ def main():
     # Handlers
     application.add_handler(CommandHandler('start', start))
     application.add_handler(CommandHandler('rp', report))
-    application.add_handler(MessageHandler(Filters.text & ~Filters.command, process_input))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, process_input))
     application.add_handler(CallbackQueryHandler(handle_confirmation))
 
     # Run the bot
