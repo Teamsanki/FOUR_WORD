@@ -4,7 +4,6 @@ from telegram import (
     InlineKeyboardButton,
     InlineKeyboardMarkup,
 )
-from telegram.constants import ParseMode
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -41,19 +40,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup,
     )
 
-# Step 2: /rp Command
+# Step 2: /rp Command (When the user presses "🆔Report")
 async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     await context.bot.send_message(
         chat_id,
-        "Enter Target User Id \n\n(e.g., 123456789)."
+        "Kis user ko report karna chahte hain? ID dein (e.g., 123456789)."
     )
 
-# Step 3: Process User Input and Fetch Target Name
+# Step 3: Process User Input and Fetch Target Name (After user enters ID)
 async def process_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_input = update.message.text.strip()
 
-    # Check if the user input is numeric and a valid ID
+    # Only check for valid ID if user has provided an input
     if not user_input.isdigit():
         await update.message.reply_text("Invalid ID. Please enter a valid numeric ID.")
         return
