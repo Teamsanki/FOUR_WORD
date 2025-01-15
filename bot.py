@@ -27,9 +27,9 @@ INDIAN_NAMES = [
 
 # Channel Links
 CHANNELS = [
-    "https://t.me/your_channel_1",
-    "https://t.me/your_channel_2",
-    "https://t.me/your_channel_3"
+    "https://t.me/Teamsankinetworkk",
+    "https://t.me/SANKI_MEMES",
+    "https://t.me/SankiProfession"
 ]
 
 # Step 1: Start Command
