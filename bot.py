@@ -1,107 +1,148 @@
-import os
-import time
-import random
-import re
-from telegram import Update, Bot, ReplyKeyboardMarkup
+from telegram import (
+    Update,
+    ReplyKeyboardMarkup,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+)
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
+    MessageHandler,
+    Filters,
+    CallbackQueryHandler,
     ContextTypes,
 )
+import asyncio
+import random
 
-# Random fake Indian names generator
-def generate_fake_names(count):
-    first_names = ["Raj", "Amit", "Rahul", "Priya", "Anjali", "Sunil", "Pooja", "Vikram", "Kiran", "Sneha"]
-    last_names = ["Sharma", "Verma", "Gupta", "Mehra", "Patel", "Yadav", "Singh", "Kumar", "Malhotra", "Desai"]
-    full_names = [f"{random.choice(first_names)} {random.choice(last_names)}" for _ in range(count * 2)]
-    return random.sample(full_names, count)  # Ensure unique names
+# List of Indian names for fake reporters
+INDIAN_NAMES = [
+    "Rahul Sharma", "Priya Verma", "Vikram Patel", "Sneha Mehta",
+    "Sunil Desai", "Ritu Singh", "Aman Kumar", "Kavita Joshi",
+    "Ankit Malhotra", "Pooja Gupta", "Arjun Thakur", "Nisha Aggarwal",
+    "Rohan Chauhan", "Simran Kaur", "Vivek Tripathi", "Aarti Pandey",
+    "Rajeev Nair", "Megha Jain", "Karan Kapoor", "Sonal Bansal"
+]
 
-# Validate Telegram ID
-def validate_telegram_id(user_id):
-    if re.match(r"^@[a-zA-Z0-9_]{5,32}$", user_id):
-        return True
-    return False
-
-# Hacking-style fake report generation
-def hacking_style_report(target_id, index, name):
-    report = f"""
-[Report {index}]
-Target User ID: {target_id}
-Reported by: {name}
-Status: SUCCESS
-"""
-    return report
-
-# Start command handler
+# Step 1: Start Command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
 
-    welcome_message = """
-Welcome to the Fake Telegram Member Report Simulator!
-This is just for fun, and no real actions are performed.
-Use the menu below to navigate:
-- /rp [@username]: Generate Fake Report
-"""
-
-    telegraph_image_url = "https://graph.org/file/2e37a57d083183ea24761-9cc38246fecc1af393.jpg"
-
-    # Custom keyboard
-    custom_keyboard = [
-        ["/rp @username"]
+    # Add custom menu keyboard with /rp button
+    menu_keyboard = [
+        ["🆔Report"]
     ]
-    reply_markup = ReplyKeyboardMarkup(custom_keyboard, resize_keyboard=True)
+    reply_markup = ReplyKeyboardMarkup(menu_keyboard, resize_keyboard=True)
 
-    # Send welcome message and image
-    await context.bot.send_photo(
+    await context.bot.send_message(
         chat_id,
-        telegraph_image_url,
-        caption="Welcome to the Fake Telegram Member Report Simulator!",
-        reply_markup=reply_markup
+        "Welcome to Telegram Fake Reporter Bot!\n\nUse the menu button below to start reporting.",
+        reply_markup=reply_markup,
     )
-    await context.bot.send_message(chat_id, welcome_message)
 
-# Report command handler
+# Step 2: /rp Command
 async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    user_input = update.message.text.split()
+    await context.bot.send_message(
+        chat_id,
+        "Kis user ko report karna chahte hain? Username ya ID dein (e.g., @username or 123456789)."
+    )
 
-    # Check if user provided a Telegram ID
-    if len(user_input) < 2:
-        await context.bot.send_message(chat_id, "Please provide a Telegram User ID (e.g., /rp @username).")
-        return
+# Step 3: Process User Input and Fetch Target Name
+async def process_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_input = update.message.text.strip()
 
-    target_id = user_input[1].strip()
+    try:
+        # Fetch user details using Telegram's `get_chat` method
+        user_details = await context.bot.get_chat(user_input)
+        target_name = user_details.full_name if user_details.full_name else user_details.username
+    except Exception as e:
+        target_name = "Unknown"  # If unable to fetch the name, fallback to Unknown
 
-    if not validate_telegram_id(target_id):
-        await context.bot.send_message(chat_id, "Invalid Telegram ID! Please provide a valid ID starting with '@'.")
-        return
+    # Inline buttons for confirm/cancel
+    buttons = [
+        [
+            InlineKeyboardButton("✅ Confirm", callback_data=f"confirm:{user_input}:{target_name}"),
+            InlineKeyboardButton("❌ Cancel", callback_data="cancel"),
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(buttons)
 
-    # Show progress (fake loading)
-    await context.bot.send_message(chat_id, "Generating fake reports... Please wait.")
+    await context.bot.send_message(
+        update.effective_chat.id,
+        f"Aapko '{target_name}' ko report karna hai? (Target ID: {user_input})",
+        reply_markup=reply_markup
+    )
 
-    # Generate and send reports one by one
-    fake_reports = generate_fake_names(40)  # Generate 40 unique fake names
-    for i, name in enumerate(fake_reports, 1):
-        # Simulate delay for each report
-        time.sleep(1)
-        report_content = hacking_style_report(target_id, i, name)
-        await context.bot.send_message(chat_id, report_content)
+# Step 4: Handle Confirmation or Cancellation
+async def handle_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    data = query.data
 
-    await context.bot.send_message(chat_id, "All fake reports have been generated!")
+    if data.startswith("confirm:"):
+        target_data = data.split(":")
+        target_id = target_data[1]
+        target_name = target_data[2]
+        await query.edit_message_text(f"Reporting initiated for:\n**Target ID:** {target_id}\n**Target Name:** {target_name}")
 
-# Main function
+        # Step 4.1: Generate 20 fake reports with processing
+        report_messages = []
+        for i in range(1, 21):
+            reporter_name = random.choice(INDIAN_NAMES)
+            message = await query.message.reply_text(
+                f"**[Report {i}]**\n"
+                f"**Target ID:** {target_id}\n"
+                f"**Target Name:** {target_name}\n"
+                f"**Reporter Name:** {reporter_name}\n"
+                f"**Status:** Processing..."
+            )
+            report_messages.append(message)
+            await asyncio.sleep(0.5)  # Small delay between reports
+
+        # Step 4.2: Start final fake processing
+        await fake_processing(query)
+
+        # Step 4.3: Update reports to "Success"
+        for message in report_messages:
+            await message.edit_text(
+                message.text.replace("Processing...", "✅ Success")
+            )
+
+    elif data == "cancel":
+        await query.edit_message_text("Report process cancelled.")
+
+# Step 5: Fake Processing Animation
+async def fake_processing(query):
+    # Initial processing message
+    progress_message = await query.message.reply_text("Processing...\n_")
+    progress_steps = [
+        "_", "___", "_____", "_______", "_________",
+        "_____________", "_________________", "_______________________",
+        "__________________________", "_______________________________"
+    ]
+    for i, step in enumerate(progress_steps, 1):
+        percentage = i * 10  # Calculate percentage
+        await asyncio.sleep(6)  # Wait 6 seconds for each step (10 steps * 6s = ~1 min)
+        await progress_message.edit_text(
+            f"Processing...\n{step}\nProgress: {percentage}%"
+        )
+
+    # Final message after processing completes
+    await progress_message.edit_text("Processing complete! ✅\nAll fake reports have been submitted successfully.")
+
+# Main Function
 def main():
-    # Replace with your bot token
     bot_token = '7869282132:AAFPwZ8ZrFNQxUOPgAbgDm1oInXzDx5Wk74'
 
-    # Create Application
     application = ApplicationBuilder().token(bot_token).build()
 
-    # Command handlers
+    # Handlers
     application.add_handler(CommandHandler('start', start))
     application.add_handler(CommandHandler('rp', report))
+    application.add_handler(MessageHandler(Filters.text & ~Filters.command, process_input))
+    application.add_handler(CallbackQueryHandler(handle_confirmation))
 
-    # Start the bot
+    # Run the bot
     application.run_polling()
 
 if __name__ == '__main__':
