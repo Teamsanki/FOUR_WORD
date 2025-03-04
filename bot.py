@@ -3,10 +3,10 @@ import asyncio
 import nest_asyncio
 import requests
 from bs4 import BeautifulSoup
-from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 from pymongo import MongoClient
-from googlesearch import search  # To fetch winner images & scores
+from googlesearch import search  # Fetch cricket news & images
 
 # Set up logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -18,8 +18,10 @@ collection = db['your_collection']
 
 # Telegram bot token and IDs
 TELEGRAM_TOKEN = '8151465566:AAFWFcBXPE4u7Fb1XeKrBKA8zlh2uGqHlZs'  # Replace with your actual token
-CHANNEL_ID = '-1002256101563'  # Owner's channel ID
+CHANNEL_ID = '-1002256101563'  # Owner's channel
 LOGGER_GROUP_ID = '-1002100433415'  # Logger group ID
+CHANNEL_LINK = "https://t.me/cricketlivescorets"  # Your channel link
+OWNER_USERNAME = "@ll_SANKI_II"  # Owner's Telegram Username
 
 # Function to fetch live score from Google
 def fetch_live_score():
@@ -30,61 +32,95 @@ def fetch_live_score():
         response = requests.get(result, headers=headers)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Find the live score (Google's score section)
-            score_element = soup.find('div', class_='BNeawe iBp4i AP7Wnd')  # Google's live score class
-            if score_element:
-                return f"🏏 Live Score (Google): {score_element.text.strip()}"
-            else:
-                return "⚠️ Live score not found on Google."
-    
-    return "❌ Failed to fetch live score."
 
-# Function to fetch match result from Google
-def fetch_match_result():
-    query = "Latest Cricket Match Result"
-    headers = {"User-Agent": "Mozilla/5.0"}
+            # Extract live score (Modify based on actual Google result structure)
+            score_element = soup.find('div', class_='BNeawe iBp4i AP7Wnd')  
+
+            if score_element:
+                return score_element.text.strip()
     
+    return None  # No live match found
+
+# Function to fetch cricket highlights from Google
+def fetch_cricket_highlights():
+    query = "Latest Cricket Match Highlights"
+    headers = {"User-Agent": "Mozilla/5.0"}
+
     for result in search(query, num=1, stop=1):
         response = requests.get(result, headers=headers)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Find match result (Google's match result section)
-            result_element = soup.find('div', class_='BNeawe s3v9rd AP7Wnd')  # Google's result class
-            if result_element:
-                return result_element.text.strip()  # Example: "India won by 5 wickets"
-    
-    return None
 
-# Function to fetch winning team image from Google
-def fetch_winner_image(team_name):
-    query = f"{team_name} cricket team latest match winner photo"
-    
-    for result in search(query, num=1, stop=1):
-        return result  # Returns first image result URL
-    
-    return None
+            # Extract latest news headline & image
+            headline_element = soup.find('div', class_='BNeawe vvjwJb AP7Wnd')
+            image_element = soup.find('img')  
 
-# Function to send final match result if the match is over
-async def check_and_send_match_result(context: ContextTypes.DEFAULT_TYPE) -> None:
-    match_result = fetch_match_result()
-    
-    if match_result:
-        winning_team = match_result.split(" won")[0]  # Extract winning team
-        image_url = fetch_winner_image(winning_team)
+            if headline_element:
+                return {
+                    "headline": headline_element.text.strip(),
+                    "image": image_element['src'] if image_element else None,
+                    "url": result
+                }
 
-        if image_url:
-            caption = f"🏆 {winning_team} won the match!\n\n🎉 {match_result} 🎉"
-            await context.bot.send_photo(chat_id=CHANNEL_ID, photo=image_url, caption=caption)
+    return None  # No highlights found
+
+# Function to send live scores or highlights to the channel
+async def send_updates_to_channel(context: ContextTypes.DEFAULT_TYPE):
+    live_score = fetch_live_score()
+
+    if live_score:
+        await context.bot.send_message(chat_id=CHANNEL_ID, text=f"🏏 **Live Score Update:**\n{live_score}")
+    else:
+        highlight = fetch_cricket_highlights()
+        if highlight:
+            caption = f"🔥 **Cricket Highlight:** {highlight['headline']}\n🔗 [Read More]({highlight['url']})"
+            if highlight['image']:
+                await context.bot.send_photo(chat_id=CHANNEL_ID, photo=highlight['image'], caption=caption, parse_mode="Markdown")
+            else:
+                await context.bot.send_message(chat_id=CHANNEL_ID, text=caption, parse_mode="Markdown")
+
+# Function to send live scores or highlights to groups
+async def send_updates_to_groups(context: ContextTypes.DEFAULT_TYPE):
+    live_score = fetch_live_score()
+
+    if live_score:
+        message = f"🏏 **Live Score Update:**\n{live_score}"
+    else:
+        highlight = fetch_cricket_highlights()
+        if highlight:
+            message = f"🔥 **Cricket Highlight:** {highlight['headline']}\n🔗 [Read More]({highlight['url']})"
         else:
-            await context.bot.send_message(chat_id=CHANNEL_ID, text=f"🏆 {winning_team} won the match!\n\n🎉 {match_result} 🎉")
+            message = None  # No data available
 
-# Function to start the bot
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    welcome_message = f"🎉 Welcome {update.message.from_user.first_name} to the Cricket Live Score Bot! 🏏\n\nPress the button below to get live scores."
-    keyboard = [[KeyboardButton("📊 Get Live Score")]]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
+    if message:
+        # Fetch groups from database
+        groups = db.groups.find({})
+        for group in groups:
+            try:
+                keyboard = [[InlineKeyboardButton("📢 Join for Latest Updates", url=CHANNEL_LINK)]]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await context.bot.send_message(chat_id=group['group_id'], text=message, reply_markup=reply_markup, parse_mode="Markdown")
+            except:
+                continue  # Skip errors (e.g., bot removed from group)
+
+# Function to send owner details
+async def send_owner_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.message.reply_text(f"👑 **Bot Owner:** {OWNER_USERNAME}")
+
+# Function to start the bot with Custom Keyboard
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    welcome_message = f"🎉 Welcome {update.message.from_user.first_name} to the Cricket Live Score Bot! 🏏\n\n" \
+                      "Press the buttons below to get match details."
+
+    # Custom Inline Keyboard
+    keyboard = [
+        [InlineKeyboardButton("🏏 Live Score", callback_data='live_score')],
+        [InlineKeyboardButton("👑 Owner", callback_data='owner_info')],
+        [InlineKeyboardButton("📢 Join for Latest Updates", url=CHANNEL_LINK)]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
 
     await update.message.reply_text(welcome_message, reply_markup=reply_markup)
 
@@ -97,30 +133,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     }
     collection.insert_one({"action": "start", "user_info": user_info})
 
-# Function to send live scores to users who press the button
-async def live_score(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    live_score = fetch_live_score()
-    await update.message.reply_text(live_score)
-
-# Function to send live scores to the owner's channel every 1 min
-async def send_live_score_to_channel(context: ContextTypes.DEFAULT_TYPE) -> None:
-    live_score = fetch_live_score()
-    await context.bot.send_message(chat_id=CHANNEL_ID, text=live_score)
-
-# Function to send live scores to groups every 1 min
-async def send_live_score_to_groups(context: ContextTypes.DEFAULT_TYPE) -> None:
-    live_score = fetch_live_score()
-    
-    # Get all groups from MongoDB
-    groups = db.groups.find({})
-    for group in groups:
-        try:
-            await context.bot.send_message(chat_id=group['group_id'], text=live_score)
-        except:
-            continue  # Skip if error occurs (e.g., bot removed from group)
-
 # Function to handle new groups where the bot is added
-async def new_group(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+async def new_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.message.chat
     group_info = {
         "group_id": chat.id,
@@ -130,19 +144,18 @@ async def new_group(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     collection.insert_one({"action": "new_group", "group_info": group_info})
 
 # Main function to run the bot
-async def main() -> None:
+async def main():
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
     # Command Handlers
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & filters.Regex("📊 Get Live Score"), live_score))
+    application.add_handler(CallbackQueryHandler(send_owner_info, pattern='owner_info'))
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_group))
 
     # Schedule live score updates every 60 seconds
     job_queue = application.job_queue
-    job_queue.run_repeating(send_live_score_to_channel, interval=60, first=0)  # To Owner's Channel
-    job_queue.run_repeating(send_live_score_to_groups, interval=60, first=0)  # To Groups
-    job_queue.run_repeating(check_and_send_match_result, interval=600, first=0)  # Every 10 mins check match result
+    job_queue.run_repeating(send_updates_to_channel, interval=60, first=0)  # To Owner's Channel
+    job_queue.run_repeating(send_updates_to_groups, interval=60, first=0)  # To Groups
 
     await application.run_polling()
 
