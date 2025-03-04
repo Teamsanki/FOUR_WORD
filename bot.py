@@ -97,7 +97,7 @@ async def handle_button_click(update: Update, context: ContextTypes.DEFAULT_TYPE
         await update.message.reply_text(f"🏏 **Live Score:**\n{live_score}", reply_markup=get_reply_keyboard())
 
     elif text == "🏆 Match Winner":
-        winner_info = fetch_match_winner()
+        winner_info = fetch_today_match_winner()  # ✅ FIXED FUNCTION NAME
         if winner_info:
             caption = f"🏆 **Match Winner:** {winner_info['winner']}\n\n" \
                       f"✅ **Winner Score:** {winner_info['score_winner']}\n" \
