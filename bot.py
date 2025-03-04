@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from pymongo import MongoClient
-from googlesearch import search
+from googlesearch import search  # To fetch winner images & scores
 
 # Set up logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
@@ -18,50 +18,67 @@ collection = db['your_collection']
 
 # Telegram bot token and IDs
 TELEGRAM_TOKEN = '8151465566:AAFWFcBXPE4u7Fb1XeKrBKA8zlh2uGqHlZs'  # Replace with your actual token
-CHANNEL_ID = '-1002256101563'  # Replace with your channel ID (OWNER's Channel)
-LOGGER_GROUP_ID = '-1001234567890'  # Replace with your logger group ID
+CHANNEL_ID = '-1002256101563'  # Owner's channel ID
+LOGGER_GROUP_ID = '-1002100433415'  # Logger group ID
 
-# Function to fetch live score using web scraping
+# Function to fetch live score from Google
 def fetch_live_score():
-    url = "https://www.espncricinfo.com/"  # Replace with a reliable source for live scores
-    response = requests.get(url)
+    query = "Live Cricket Score"
+    headers = {"User-Agent": "Mozilla/5.0"}
     
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        # Find the live score element (Adjust selector based on the actual website)
-        score_element = soup.find('div', class_='live-score')  # Adjust this selector
-        if score_element:
-            return f"🏏 Live Score Update: {score_element.text.strip()} 🏏"
-        else:
-            return "⚠️ Live score not found."
-    else:
-        return "❌ Failed to fetch live score."
+    for result in search(query, num=1, stop=1):
+        response = requests.get(result, headers=headers)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Find the live score (Google's score section)
+            score_element = soup.find('div', class_='BNeawe iBp4i AP7Wnd')  # Google's live score class
+            if score_element:
+                return f"🏏 Live Score (Google): {score_element.text.strip()}"
+            else:
+                return "⚠️ Live score not found on Google."
+    
+    return "❌ Failed to fetch live score."
 
-# Function to check if a match is over
+# Function to fetch match result from Google
 def fetch_match_result():
-    url = "https://www.espncricinfo.com/live-cricket-score"  # Change to a reliable source
-    response = requests.get(url)
+    query = "Latest Cricket Match Result"
+    headers = {"User-Agent": "Mozilla/5.0"}
     
-    if response.status_code == 200:
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        result_element = soup.find('div', class_='match-result')  # Adjust selector
-        if result_element:
-            return result_element.text.strip()
-        else:
-            return None
-    else:
-        return None
+    for result in search(query, num=1, stop=1):
+        response = requests.get(result, headers=headers)
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
+            # Find match result (Google's match result section)
+            result_element = soup.find('div', class_='BNeawe s3v9rd AP7Wnd')  # Google's result class
+            if result_element:
+                return result_element.text.strip()  # Example: "India won by 5 wickets"
+    
+    return None
 
-# Function to fetch team winner image from Google
+# Function to fetch winning team image from Google
 def fetch_winner_image(team_name):
     query = f"{team_name} cricket team latest match winner photo"
     
-    for result in search(query, num=1):
+    for result in search(query, num=1, stop=1):
         return result  # Returns first image result URL
     
     return None
+
+# Function to send final match result if the match is over
+async def check_and_send_match_result(context: ContextTypes.DEFAULT_TYPE) -> None:
+    match_result = fetch_match_result()
+    
+    if match_result:
+        winning_team = match_result.split(" won")[0]  # Extract winning team
+        image_url = fetch_winner_image(winning_team)
+
+        if image_url:
+            caption = f"🏆 {winning_team} won the match!\n\n🎉 {match_result} 🎉"
+            await context.bot.send_photo(chat_id=CHANNEL_ID, photo=image_url, caption=caption)
+        else:
+            await context.bot.send_message(chat_id=CHANNEL_ID, text=f"🏆 {winning_team} won the match!\n\n🎉 {match_result} 🎉")
 
 # Function to start the bot
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -79,10 +96,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "last_name": update.message.from_user.last_name
     }
     collection.insert_one({"action": "start", "user_info": user_info})
-
-    # Log new user in the LOGGER GROUP
-    log_message = f"📢 *New User Started Bot*\n👤 Name: {update.message.from_user.full_name}\n🆔 ID: `{update.message.from_user.id}`\n🌍 Username: @{update.message.from_user.username if update.message.from_user.username else 'N/A'}"
-    await context.bot.send_message(chat_id=LOGGER_GROUP_ID, text=log_message, parse_mode="Markdown")
 
 # Function to send live scores to users who press the button
 async def live_score(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -106,21 +119,6 @@ async def send_live_score_to_groups(context: ContextTypes.DEFAULT_TYPE) -> None:
         except:
             continue  # Skip if error occurs (e.g., bot removed from group)
 
-# Function to check and send match results
-async def check_and_send_match_result(context: ContextTypes.DEFAULT_TYPE) -> None:
-    match_result = fetch_match_result()
-    
-    if match_result:
-        # Extract the winning team
-        winning_team = match_result.split(" won")[0]  # Assuming result contains "Team X won by..."
-        image_url = fetch_winner_image(winning_team)
-
-        if image_url:
-            caption = f"🏆 {winning_team} won the match!\n\n🎉 {match_result} 🎉"
-            await context.bot.send_photo(chat_id=CHANNEL_ID, photo=image_url, caption=caption)
-        else:
-            await context.bot.send_message(chat_id=CHANNEL_ID, text=f"🏆 {winning_team} won the match!\n\n🎉 {match_result} 🎉")
-
 # Function to handle new groups where the bot is added
 async def new_group(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     chat = update.message.chat
@@ -130,10 +128,6 @@ async def new_group(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         "added_by": update.message.from_user.username
     }
     collection.insert_one({"action": "new_group", "group_info": group_info})
-
-    # Log new group in the LOGGER GROUP
-    log_message = f"📢 *New Group Added*\n🏠 Group: {chat.title}\n🆔 Group ID: `{chat.id}`\n👤 Added By: @{update.message.from_user.username if update.message.from_user.username else 'N/A'}"
-    await context.bot.send_message(chat_id=LOGGER_GROUP_ID, text=log_message, parse_mode="Markdown")
 
 # Main function to run the bot
 async def main() -> None:
