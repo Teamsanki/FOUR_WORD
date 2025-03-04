@@ -40,25 +40,37 @@ def fetch_live_score():
 
 # Function to fetch winner, score & opponent score
 def fetch_match_winner():
-    query = "Today's Cricket Match Winner and Score"
+    query = "Latest Cricket Match Winner site:espncricinfo.com OR site:icc-cricket.com OR site:gettyimages.com"
     headers = {"User-Agent": "Mozilla/5.0"}
-    
-    for result in search(query, num=1, stop=1):
+
+    for result in search(query, num=3, stop=3):
         response = requests.get(result, headers=headers)
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
-            
-            winner_element = soup.find('div', class_='BNeawe vvjwJb AP7Wnd')  
-            score_element = soup.find_all('div', class_='BNeawe iBp4i AP7Wnd')
 
-            if winner_element and len(score_element) >= 2:
-                return {
-                    "winner": winner_element.text.strip(),
-                    "score_winner": score_element[0].text.strip(),
-                    "score_opponent": score_element[1].text.strip()
-                }
+            # 1️⃣ Try extracting Winner from OpenGraph meta tag
+            winner_element = soup.find('meta', property='og:title')
+            if winner_element:
+                winner = winner_element['content']
+            else:
+                winner = soup.find('title').text.strip()
 
-    return None  
+            # 2️⃣ Try extracting scores from Google-style divs
+            score_elements = soup.find_all('div', class_='BNeawe iBp4i AP7Wnd')
+            if len(score_elements) >= 2:
+                score_winner = score_elements[0].text.strip()
+                score_opponent = score_elements[1].text.strip()
+            else:
+                score_winner = "❌ Score Not Found"
+                score_opponent = "❌ Score Not Found"
+
+            return {
+                "winner": winner,
+                "score_winner": score_winner,
+                "score_opponent": score_opponent
+            }
+
+    return None  # If nothing is found
 
 # Function to send Reply Keyboard (Bottom Buttons)
 def get_reply_keyboard():
