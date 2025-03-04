@@ -39,8 +39,8 @@ def fetch_live_score():
     return "❌ No Live Match Right Now"
 
 # Function to fetch winner, score & opponent score
-def fetch_match_winner():
-    query = "Latest Cricket Match Winner site:espncricinfo.com OR site:icc-cricket.com OR site:gettyimages.com"
+def fetch_today_match_winner():
+    query = "Today Cricket Match Winner and Score site:espncricinfo.com OR site:icc-cricket.com"
     headers = {"User-Agent": "Mozilla/5.0"}
 
     for result in search(query, num=3, stop=3):
@@ -48,14 +48,11 @@ def fetch_match_winner():
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # 1️⃣ Try extracting Winner from OpenGraph meta tag
+            # 1️⃣ Winner Extract from Meta Tag
             winner_element = soup.find('meta', property='og:title')
-            if winner_element:
-                winner = winner_element['content']
-            else:
-                winner = soup.find('title').text.strip()
+            winner = winner_element['content'] if winner_element else "🏆 Winner Not Found"
 
-            # 2️⃣ Try extracting scores from Google-style divs
+            # 2️⃣ Extract Scores (Google Style)
             score_elements = soup.find_all('div', class_='BNeawe iBp4i AP7Wnd')
             if len(score_elements) >= 2:
                 score_winner = score_elements[0].text.strip()
@@ -70,7 +67,7 @@ def fetch_match_winner():
                 "score_opponent": score_opponent
             }
 
-    return None  # If nothing is found
+    return None  # If no data found
 
 # Function to send Reply Keyboard (Bottom Buttons)
 def get_reply_keyboard():
