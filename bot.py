@@ -82,35 +82,26 @@ async def new_member(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
             "user_id": member.id,
             "username": member.username,
             "first_name": member.first_name,
-            "last_name": member.last_name,
-            "group_id": update.message.chat.id,
-            "group_name": update.message.chat.title
+            " last_name": member.last_name
         }
         collection.insert_one({"action": "new_member", "user_info": user_info})
-
-        # Start sending live scores every minute
-        context.job_queue.run_repeating(send_live_score_to_group, interval=60, first=0, context=update.message.chat.id)
-
-# Function to send live score updates to the group
-async def send_live_score_to_group(context: ContextTypes.DEFAULT_TYPE) -> None:
-    chat_id = context.job.context
-    live_score = fetch_live_score()
-    await context.bot.send_message(chat_id=chat_id, text=f"Live Score Update: {live_score}")
+        await update.message.reply_text(f"Welcome {member.first_name} to the group!")
 
 # Main function to run the bot
 async def main() -> None:
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    
-    # Register handlers
-    application.add_handler(CommandHandler('start', start))
+
+    application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(button))
     application.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, new_member))
-    
-    # Start the bot
+
+    # Schedule live score updates every 60 seconds
+    job_queue = application.job_queue
+    job_queue.run_repeating(send_live_score_to_channel, interval=60, first=0)
+
     await application.run_polling()
 
 if __name__ == '__main__':
     import asyncio
-    asyncio.run(main()) 
-
-#Make sure to replace the placeholders like `YOUR_TELEGRAM_BOT_TOKEN` with your actual credentials. Additionally, ensure that the URL used for fetching live scores is correct and that the HTML structure of the page matches the selectors used in the `fetch_live_score` function.
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())
