@@ -3,8 +3,8 @@ import asyncio
 import nest_asyncio
 import requests
 from bs4 import BeautifulSoup
-from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from pymongo import MongoClient
 from googlesearch import search  
 
@@ -36,9 +36,9 @@ def fetch_live_score():
             if score_element:
                 return score_element.text.strip()
     
-    return None  
+    return "❌ No Live Match Right Now"
 
-# Function to fetch winner, score & image
+# Function to fetch winner, score & opponent score
 def fetch_match_winner():
     query = "Today's Cricket Match Winner and Score"
     headers = {"User-Agent": "Mozilla/5.0"}
@@ -50,112 +50,81 @@ def fetch_match_winner():
             
             winner_element = soup.find('div', class_='BNeawe vvjwJb AP7Wnd')  
             score_element = soup.find_all('div', class_='BNeawe iBp4i AP7Wnd')
-            image_element = soup.find('img')
 
             if winner_element and len(score_element) >= 2:
                 return {
                     "winner": winner_element.text.strip(),
                     "score_winner": score_element[0].text.strip(),
-                    "score_opponent": score_element[1].text.strip(),
-                    "image": image_element['src'] if image_element else TELEGRAPH_URL,
-                    "url": result
+                    "score_opponent": score_element[1].text.strip()
                 }
 
     return None  
 
-# Function to fetch cricket highlights images
-def fetch_highlights_image():
-    query = "Latest Cricket Match Highlights HD"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    
-    for result in search(query, num=1, stop=1):
-        response = requests.get(result, headers=headers)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            image_element = soup.find('img')
-            
-            if image_element:
-                return image_element['src']
-
-    return TELEGRAPH_URL  
-
-# Function to send Inline Keyboard with Buttons
-def get_inline_keyboard():
-    keyboard = [
-        [InlineKeyboardButton("🏏 Live Score", callback_data='live_score')],
-        [InlineKeyboardButton("🏆 Match Winner", callback_data='match_winner')],
-        [InlineKeyboardButton("👑 Owner", callback_data='owner_info')],
-        [InlineKeyboardButton("📢 Join for Updates", url=CHANNEL_LINK)]
-    ]
-    return InlineKeyboardMarkup(keyboard)
-
-# Function to send Reply Keyboard (Bottom Button)
+# Function to send Reply Keyboard (Bottom Buttons)
 def get_reply_keyboard():
     keyboard = [
-        [KeyboardButton("📊 Get Live Score")]  # Custom button at the bottom
+        [KeyboardButton("📊 Get Live Score")],
+        [KeyboardButton("🏆 Match Winner"), KeyboardButton("👑 Owner")],
+        [KeyboardButton("📢 Join for Updates")]
     ]
     return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-# Function to start the bot with Custom Keyboards
+# Function to start the bot with Custom Buttons
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     live_score = fetch_live_score()
-    live_score_text = f"🏏 **Live Score:**\n{live_score}" if live_score else "❌ No live match right now!"
 
     welcome_message = f"🎉 Welcome {update.message.from_user.first_name} to Cricket Live Score Bot! 🏏\n\n" \
                       "📊 Stay Updated with Live Scores, Match Highlights, and More!"
 
-    await update.message.reply_photo(photo=TELEGRAPH_URL, caption=welcome_message, reply_markup=get_inline_keyboard())
-    await update.message.reply_text(live_score_text, reply_markup=get_reply_keyboard())
+    await update.message.reply_photo(photo=TELEGRAPH_URL, caption=welcome_message, reply_markup=get_reply_keyboard())
+    await update.message.reply_text(f"🏏 **Live Score:**\n{live_score}", reply_markup=get_reply_keyboard())
 
-# Function to handle Inline Button Clicks
-async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
+# Function to handle button clicks
+async def handle_button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
 
-    if query.data == "live_score":
+    if text == "📊 Get Live Score":
         live_score = fetch_live_score()
-        text = f"🏏 **Live Score:**\n{live_score}" if live_score else "❌ No live match right now!"
-        await query.message.reply_text(text, reply_markup=get_inline_keyboard())
+        await update.message.reply_text(f"🏏 **Live Score:**\n{live_score}", reply_markup=get_reply_keyboard())
 
-    elif query.data == "match_winner":
+    elif text == "🏆 Match Winner":
         winner_info = fetch_match_winner()
         if winner_info:
             caption = f"🏆 **Match Winner:** {winner_info['winner']}\n\n" \
                       f"✅ **Winner Score:** {winner_info['score_winner']}\n" \
-                      f"❌ **Opponent Score:** {winner_info['score_opponent']}\n\n" \
-                      f"🔗 [Read More]({winner_info['url']})"
-
-            await query.message.reply_photo(photo=winner_info["image"], caption=caption, parse_mode="Markdown", reply_markup=get_inline_keyboard())
+                      f"❌ **Opponent Score:** {winner_info['score_opponent']}"
+            await update.message.reply_text(caption, reply_markup=get_reply_keyboard())
         else:
-            await query.message.reply_text("❌ No winner info found!", reply_markup=get_inline_keyboard())
+            await update.message.reply_text("❌ No winner info found!", reply_markup=get_reply_keyboard())
 
-    elif query.data == "owner_info":
-        await query.message.reply_text(f"👑 **Bot Owner:** {OWNER_USERNAME}", reply_markup=get_inline_keyboard())
+    elif text == "👑 Owner":
+        await update.message.reply_text(f"👑 **Bot Owner:** {OWNER_USERNAME}", reply_markup=get_reply_keyboard())
 
-# Function to handle reply button clicks (Live Score)
-async def reply_button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.text == "📊 Get Live Score":
-        live_score = fetch_live_score()
-        text = f"🏏 **Live Score:**\n{live_score}" if live_score else "❌ No live match found!"
-        await update.message.reply_text(text, reply_markup=get_reply_keyboard())
+    elif text == "📢 Join for Updates":
+        await update.message.reply_text(f"📢 **Join Our Channel for Latest Updates:**\n{CHANNEL_LINK}", reply_markup=get_reply_keyboard())
 
-# Function to send updates to the channel (Live Score or Highlights)
+# Function to send updates to the channel (Only Winner & Score, No Image)
 async def send_updates_to_channel(context: ContextTypes.DEFAULT_TYPE):
     live_score = fetch_live_score()
 
-    if live_score:
+    if live_score and "❌" not in live_score:  # If Match is Live
         await context.bot.send_message(chat_id=CHANNEL_ID, text=f"🏏 **Live Score Update:**\n{live_score}")
-    else:
-        image = fetch_highlights_image()
-        await context.bot.send_photo(chat_id=CHANNEL_ID, photo=image, caption="📸 Latest Cricket Highlights")
+    else:  # If No Match is Live, Send Winner Update
+        winner_info = fetch_match_winner()
+        if winner_info:
+            caption = f"🏆 **Match Winner:** {winner_info['winner']}\n\n" \
+                      f"✅ **Winner Score:** {winner_info['score_winner']}\n" \
+                      f"❌ **Opponent Score:** {winner_info['score_opponent']}"
+            await context.bot.send_message(chat_id=CHANNEL_ID, text=caption)
+        else:
+            await context.bot.send_message(chat_id=CHANNEL_ID, text="⚡ Stay Tuned for Cricket Updates!")
 
 # Main function to run the bot
 async def main():
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(button_click))
-    application.add_handler(MessageHandler(filters.TEXT & filters.Regex("📊 Get Live Score"), reply_button_click))
+    application.add_handler(MessageHandler(filters.TEXT, handle_button_click))
 
     job_queue = application.job_queue
     job_queue.run_repeating(send_updates_to_channel, interval=60, first=0)  
