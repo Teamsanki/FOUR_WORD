@@ -48,18 +48,24 @@ def fetch_today_match_winner():
         if response.status_code == 200:
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # 1️⃣ Winner Extract from Meta Tag
-            winner_element = soup.find('meta', property='og:title')
-            winner = winner_element['content'] if winner_element else "🏆 Winner Not Found"
+            # ✅ Try extracting Winner Name
+            winner_element = soup.find('meta', property='og:title')  # OpenGraph Meta Tag
+            winner = winner_element['content'] if winner_element else soup.title.text.strip()
 
-            # 2️⃣ Extract Scores (Google Style)
+            # ✅ Try extracting scores from Google Divs
             score_elements = soup.find_all('div', class_='BNeawe iBp4i AP7Wnd')
             if len(score_elements) >= 2:
                 score_winner = score_elements[0].text.strip()
                 score_opponent = score_elements[1].text.strip()
             else:
-                score_winner = "❌ Score Not Found"
-                score_opponent = "❌ Score Not Found"
+                # ✅ If Google fails, try ESPN's Scorecard Format
+                scorecard = soup.find('div', class_="ds-text-compact-m ds-text-typo ds-text-right ds-whitespace-nowrap")
+                if scorecard:
+                    score_winner = scorecard.text.strip()
+                    score_opponent = "Opponent Score Not Found"
+                else:
+                    score_winner = "❌ Score Not Found"
+                    score_opponent = "❌ Score Not Found"
 
             return {
                 "winner": winner,
