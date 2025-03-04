@@ -105,6 +105,12 @@ if __name__ == '__main__':
     import asyncio
 
     try:
-        asyncio.run(main())
-    except RuntimeError as e:
-        print(f"RuntimeError: {e}")
+        loop = asyncio.get_running_loop()  # Check if an event loop is running
+    except RuntimeError:
+        loop = None
+
+    if loop and loop.is_running():
+        print("Event loop is already running. Running main() as a task.")
+        asyncio.create_task(main())  # Run as a background task
+    else:
+        asyncio.run(main())  # Normal execution
