@@ -103,5 +103,8 @@ async def main() -> None:
 
 if __name__ == '__main__':
     import asyncio
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+
+    try:
+        asyncio.run(main())
+    except RuntimeError as e:
+        print(f"RuntimeError: {e}")
