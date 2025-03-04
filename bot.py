@@ -1,4 +1,5 @@
 import logging
+import asyncio  # Add this at the top
 import nest_asyncio
 import requests
 from bs4 import BeautifulSoup
