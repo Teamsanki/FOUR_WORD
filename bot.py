@@ -17,7 +17,7 @@ db = mongo_client['your_database']
 collection = db['your_collection']
 
 # Telegram bot token and IDs
-TELEGRAM_TOKEN = 'YOUR_BOT_TOKEN'  # Replace with your actual token
+TELEGRAM_TOKEN = '8151465566:AAFWFcBXPE4u7Fb1XeKrBKA8zlh2uGqHlZs'  # Replace with your actual token
 CHANNEL_ID = '-1002256101563'  # Replace with your channel ID (OWNER's Channel)
 LOGGER_GROUP_ID = '-1001234567890'  # Replace with your logger group ID
 
