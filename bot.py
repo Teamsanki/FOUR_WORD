@@ -21,6 +21,7 @@ TELEGRAM_TOKEN = '8151465566:AAFWFcBXPE4u7Fb1XeKrBKA8zlh2uGqHlZs'
 CHANNEL_ID = '-1002256101563'  
 CHANNEL_LINK = "https://t.me/cricketlivescorets"  
 OWNER_USERNAME = "@ll_SANKI_II"  
+TELEGRAPH_URL = "https://graph.org/file/d28c8d11173e3742404f6-af0a006bcdf0362c71.jpg"  # Replace with Cricket Image
 
 # Function to fetch live score from Google
 def fetch_live_score():
@@ -56,7 +57,7 @@ def fetch_match_winner():
                     "winner": winner_element.text.strip(),
                     "score_winner": score_element[0].text.strip(),
                     "score_opponent": score_element[1].text.strip(),
-                    "image": image_element['src'] if image_element else None,
+                    "image": image_element['src'] if image_element else TELEGRAPH_URL,
                     "url": result
                 }
 
@@ -64,7 +65,7 @@ def fetch_match_winner():
 
 # Function to fetch cricket highlights images
 def fetch_highlights_image():
-    query = "Latest Cricket Match Highlights"
+    query = "Latest Cricket Match Highlights HD"
     headers = {"User-Agent": "Mozilla/5.0"}
     
     for result in search(query, num=1, stop=1):
@@ -76,9 +77,9 @@ def fetch_highlights_image():
             if image_element:
                 return image_element['src']
 
-    return None  
+    return TELEGRAPH_URL  
 
-# Function to send Inline Keyboard with Buttons (Custom Built)
+# Function to send Inline Keyboard with Buttons
 def get_inline_keyboard():
     keyboard = [
         [InlineKeyboardButton("🏏 Live Score", callback_data='live_score')],
@@ -100,11 +101,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     live_score = fetch_live_score()
     live_score_text = f"🏏 **Live Score:**\n{live_score}" if live_score else "❌ No live match right now!"
 
-    welcome_message = f"🎉 Welcome {update.message.from_user.first_name} to the Cricket Live Score Bot! 🏏\n\n" \
-                      "Press the button below to get live score or select other options."
+    welcome_message = f"🎉 Welcome {update.message.from_user.first_name} to Cricket Live Score Bot! 🏏\n\n" \
+                      "📊 Stay Updated with Live Scores, Match Highlights, and More!"
 
-    await update.message.reply_text(welcome_message, reply_markup=get_reply_keyboard())  # Reply Keyboard (Bottom)
-    await update.message.reply_text(live_score_text, reply_markup=get_inline_keyboard())  # Inline Keyboard
+    await update.message.reply_photo(photo=TELEGRAPH_URL, caption=welcome_message, reply_markup=get_inline_keyboard())
+    await update.message.reply_text(live_score_text, reply_markup=get_reply_keyboard())
 
 # Function to handle Inline Button Clicks
 async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -124,10 +125,7 @@ async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
                       f"❌ **Opponent Score:** {winner_info['score_opponent']}\n\n" \
                       f"🔗 [Read More]({winner_info['url']})"
 
-            if winner_info["image"]:
-                await query.message.reply_photo(photo=winner_info["image"], caption=caption, parse_mode="Markdown", reply_markup=get_inline_keyboard())
-            else:
-                await query.message.reply_text(caption, parse_mode="Markdown", reply_markup=get_inline_keyboard())
+            await query.message.reply_photo(photo=winner_info["image"], caption=caption, parse_mode="Markdown", reply_markup=get_inline_keyboard())
         else:
             await query.message.reply_text("❌ No winner info found!", reply_markup=get_inline_keyboard())
 
@@ -149,10 +147,7 @@ async def send_updates_to_channel(context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=CHANNEL_ID, text=f"🏏 **Live Score Update:**\n{live_score}")
     else:
         image = fetch_highlights_image()
-        if image:
-            await context.bot.send_photo(chat_id=CHANNEL_ID, photo=image, caption="📸 Latest Cricket Highlights")
-        else:
-            await context.bot.send_message(chat_id=CHANNEL_ID, text="📢 No live match! Join our channel for updates.")
+        await context.bot.send_photo(chat_id=CHANNEL_ID, photo=image, caption="📸 Latest Cricket Highlights")
 
 # Main function to run the bot
 async def main():
