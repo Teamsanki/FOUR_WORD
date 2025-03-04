@@ -1,2 +1,4 @@
-python-telegram-bot==25.0
-nest-asyncio==1.5.6
+python-telegram-bot==20.0  # Adjust the version as needed
+requests==2.26.0  # Adjust the version as needed
+beautifulsoup4==4.10.0  # Adjust the version as needed
+pymongo==3.12.0  # Adjust the version as needed
