@@ -1,4 +1,5 @@
 import logging
+import nest_asyncio
 import requests
 from bs4 import BeautifulSoup
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -100,17 +101,11 @@ async def main() -> None:
     job_queue.run_repeating(send_live_score_to_channel, interval=60, first=0)
 
     await application.run_polling()
+  # Import nest_asyncio
 
-import asyncio
+# Patch the running event loop
+nest_asyncio.apply()
 
 if __name__ == '__main__':
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        loop = None  # No running loop exists
-
-    if loop and loop.is_running():
-        print("Event loop already running. Running main() as a task.")
-        asyncio.ensure_future(main())  # Run main() as a background task
-    else:
-        asyncio.run(main())  # Normal execution if no loop is running
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main())  # Run the bot inside the existing event loop
