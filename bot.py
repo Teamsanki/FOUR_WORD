@@ -1,9 +1,9 @@
-1import logging
-2import requests
-3from bs4 import BeautifulSoup
-4from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-5from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
-6from pymongo import MongoClient
+import logging
+import requests
+from bs4 import BeautifulSoup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
+from pymongo import MongoClient
 
 # Set up logging
 logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
