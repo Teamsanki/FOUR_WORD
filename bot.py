@@ -101,16 +101,16 @@ async def main() -> None:
 
     await application.run_polling()
 
-if __name__ == '__main__':
-    import asyncio
+import asyncio
 
+if __name__ == '__main__':
     try:
-        loop = asyncio.get_running_loop()  # Check if an event loop is running
+        loop = asyncio.get_running_loop()
     except RuntimeError:
-        loop = None
+        loop = None  # No running loop exists
 
     if loop and loop.is_running():
-        print("Event loop is already running. Running main() as a task.")
-        asyncio.create_task(main())  # Run as a background task
+        print("Event loop already running. Running main() as a task.")
+        asyncio.ensure_future(main())  # Run main() as a background task
     else:
-        asyncio.run(main())  # Normal execution
+        asyncio.run(main())  # Normal execution if no loop is running
