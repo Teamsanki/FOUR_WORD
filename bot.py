@@ -3,7 +3,7 @@ import asyncio
 import nest_asyncio
 import requests
 from bs4 import BeautifulSoup
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, KeyboardButton, ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 from pymongo import MongoClient
 from googlesearch import search  
@@ -59,108 +59,88 @@ def fetch_match_winner():
 
     return None  
 
-# Function to fetch cricket highlights from Google
-def fetch_cricket_highlights():
-    query = "Latest Cricket Match Highlights"
-    headers = {"User-Agent": "Mozilla/5.0"}
+# Function to send Inline Keyboard with Buttons
+def get_inline_keyboard():
+    keyboard = [
+        [InlineKeyboardButton("🏆 Match Winner", callback_data='match_winner')],
+        [InlineKeyboardButton("👑 Owner", callback_data='owner_info')],
+        [InlineKeyboardButton("📢 Join for Updates", url=CHANNEL_LINK)]
+    ]
+    return InlineKeyboardMarkup(keyboard)
 
-    for result in search(query, num=1, stop=1):
-        response = requests.get(result, headers=headers)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            headline_element = soup.find('div', class_='BNeawe vvjwJb AP7Wnd')
-            image_element = soup.find('img')  
-            if headline_element:
-                return {
-                    "headline": headline_element.text.strip(),
-                    "image": image_element['src'] if image_element else None,
-                    "url": result
-                }
+# Function to send Reply Keyboard (Bottom Buttons)
+def get_reply_keyboard():
+    keyboard = [
+        [KeyboardButton("📊 Get Live Score")]  # This button appears at the bottom
+    ]
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
-    return None  
+# Function to start the bot with Custom Keyboard
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    welcome_message = f"🎉 Welcome {update.message.from_user.first_name} to the Cricket Live Score Bot! 🏏\n\n" \
+                      "Press the button below to get live score or select other options."
 
-# Function to send live scores or highlights to the channel
+    await update.message.reply_text(welcome_message, reply_markup=get_reply_keyboard())  # Reply Keyboard (Bottom)
+    await update.message.reply_text("More options:", reply_markup=get_inline_keyboard())  # Inline Keyboard
+
+# Function to handle Inline Button Clicks
+async def button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == "match_winner":
+        winner_info = fetch_match_winner()
+        if winner_info:
+            caption = f"🏆 **Match Winner:** {winner_info['winner']}\n🔗 [Read More]({winner_info['url']})"
+            if winner_info["image"]:
+                await query.message.reply_photo(photo=winner_info["image"], caption=caption, parse_mode="Markdown", reply_markup=get_inline_keyboard())
+            else:
+                await query.message.reply_text(caption, parse_mode="Markdown", reply_markup=get_inline_keyboard())
+        else:
+            await query.message.reply_text("❌ No winner info found!", reply_markup=get_inline_keyboard())
+
+    elif query.data == "owner_info":
+        await query.message.reply_text(f"👑 **Bot Owner:** {OWNER_USERNAME}", reply_markup=get_inline_keyboard())
+
+# Function to handle reply button clicks (Live Score)
+async def reply_button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.text == "📊 Get Live Score":
+        live_score = fetch_live_score()
+        text = f"🏏 **Live Score:**\n{live_score}" if live_score else "❌ No live match found!"
+        await update.message.reply_text(text, reply_markup=get_reply_keyboard())  # Keep reply keyboard
+
+# Function to send live scores to the channel
 async def send_updates_to_channel(context: ContextTypes.DEFAULT_TYPE):
     live_score = fetch_live_score()
 
     if live_score:
         await context.bot.send_message(chat_id=CHANNEL_ID, text=f"🏏 **Live Score Update:**\n{live_score}")
     else:
-        highlight = fetch_cricket_highlights()
-        if highlight:
-            caption = f"🔥 **Cricket Highlight:** {highlight['headline']}\n🔗 [Read More]({highlight['url']})"
-            if highlight['image']:
-                await context.bot.send_photo(chat_id=CHANNEL_ID, photo=highlight['image'], caption=caption, parse_mode="Markdown")
-            else:
-                await context.bot.send_message(chat_id=CHANNEL_ID, text=caption, parse_mode="Markdown")
+        await context.bot.send_message(chat_id=CHANNEL_ID, text="📢 No live match! Check highlights or join for updates.")
 
-# Function to send live scores or highlights to groups
+# Function to send live scores to groups
 async def send_updates_to_groups(context: ContextTypes.DEFAULT_TYPE):
     live_score = fetch_live_score()
 
     if live_score:
         message = f"🏏 **Live Score Update:**\n{live_score}"
     else:
-        highlight = fetch_cricket_highlights()
-        if highlight:
-            message = f"🔥 **Cricket Highlight:** {highlight['headline']}\n🔗 [Read More]({highlight['url']})"
-        else:
-            message = None  
+        message = "📢 No live match! Join our channel for updates."
 
-    if message:
-        groups = db.groups.find({})
-        for group in groups:
-            try:
-                keyboard = [[InlineKeyboardButton("📢 Join for Latest Updates", url=CHANNEL_LINK)]]
-                reply_markup = InlineKeyboardMarkup(keyboard)
-                await context.bot.send_message(chat_id=group['group_id'], text=message, reply_markup=reply_markup, parse_mode="Markdown")
-            except:
-                continue  
-
-# Function to send owner details
-async def send_owner_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.message.reply_text(f"👑 **Bot Owner:** {OWNER_USERNAME}")
-
-# Function to send match winner details
-async def send_match_winner(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-
-    winner_info = fetch_match_winner()
-    if winner_info:
-        caption = f"🏆 **Match Winner:** {winner_info['winner']}\n🔗 [Read More]({winner_info['url']})"
-        if winner_info["image"]:
-            await query.message.reply_photo(photo=winner_info["image"], caption=caption, parse_mode="Markdown")
-        else:
-            await query.message.reply_text(caption, parse_mode="Markdown")
-    else:
-        await query.message.reply_text("❌ No winner info found!")
-
-# Function to start the bot with Custom Keyboard
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    welcome_message = f"🎉 Welcome {update.message.from_user.first_name} to the Cricket Live Score Bot! 🏏\n\n" \
-                      "Press the buttons below to get match details."
-
-    # Custom Inline Keyboard
-    keyboard = [
-        [InlineKeyboardButton("🏏 Live Score", callback_data='live_score')],
-        [InlineKeyboardButton("🏆 Match Winner", callback_data='match_winner')],
-        [InlineKeyboardButton("👑 Owner", callback_data='owner_info')],
-        [InlineKeyboardButton("📢 Join for Updates", url=CHANNEL_LINK)]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    await update.message.reply_text(welcome_message, reply_markup=reply_markup)
+    groups = db.groups.find({})
+    for group in groups:
+        try:
+            await context.bot.send_message(chat_id=group['group_id'], text=message, reply_markup=get_inline_keyboard())
+        except:
+            continue  
 
 # Main function to run the bot
 async def main():
     application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
 
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(send_owner_info, pattern='owner_info'))
-    application.add_handler(CallbackQueryHandler(send_match_winner, pattern='match_winner'))
+    application.add_handler(CallbackQueryHandler(button_click))
+    application.add_handler(MessageHandler(filters.TEXT & filters.Regex("📊 Get Live Score"), reply_button_click))
 
     job_queue = application.job_queue
     job_queue.run_repeating(send_updates_to_channel, interval=60, first=0)  
