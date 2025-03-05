@@ -185,6 +185,7 @@ async def main():
     app.add_handler(CommandHandler("redeem", redeem))
     app.add_handler(CommandHandler("bet", bet))
     app.add_handler(CommandHandler("checkwinner", check_winner))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_buttons))
     await app.run_polling()
 
 if __name__ == "__main__":
