@@ -73,7 +73,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "👇 **Use the buttons below to explore!**"
     )
 
-    update.message.reply_photo(photo=TELEGRAPH_IMAGE_URL, caption=caption_text, reply_markup=reply_markup)
+    await update.message.reply_photo(photo=TELEGRAPH_IMAGE_URL, caption=caption_text, reply_markup=reply_markup)
 
 # 🔥 Function: Show User Account Info
 async def account(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -185,7 +185,6 @@ async def main():
     app.add_handler(CommandHandler("redeem", redeem))
     app.add_handler(CommandHandler("bet", bet))
     app.add_handler(CommandHandler("checkwinner", check_winner))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, menu_buttons))
     await app.run_polling()
 
 if __name__ == "__main__":
