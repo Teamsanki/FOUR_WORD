@@ -2,6 +2,7 @@ import requests
 import asyncio
 import random
 import string
+from telegram import ReplyKeyboardMarkup
 from pymongo import MongoClient
 from telegram import Update, Poll, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
@@ -52,19 +53,17 @@ def get_match_winner():
                 return f"🏆 **Match Winner:** {match['winner_team']}"
     return "❌ No Completed Matches Found"
 
-# 🔥 Function: Start Command with Structured Custom Inline Keyboard
+# 🔥 Function: Start Command with Keyboard Menu
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Keyboard Menu Layout
     keyboard = [
-        [InlineKeyboardButton("📊 LIVE SCORE", callback_data="live_score")],  # Row 1
-        [InlineKeyboardButton("🏆 MATCH WINNER", callback_data="match_winner"),
-         InlineKeyboardButton("💰 BET P2P", callback_data="bet_match")],  # Row 2
-        [InlineKeyboardButton("👤 ACCOUNT", callback_data="account"),
-         InlineKeyboardButton("🎟 REDEEM CODE", callback_data="redeem_code")],  # Row 3
-        [InlineKeyboardButton("👑 OWNER", url="https://t.me/ll_SANKI_II")],  # Row 4
-        [InlineKeyboardButton("📢 JOIN CHANNEL", url="https://t.me/cricketlivescorets"),
-         InlineKeyboardButton("🤝 SUPPORT GROUP", url=SUPPORT_GROUP)]  # Last Row
+        ["📊 LIVE SCORE"], 
+        ["🏆 MATCH WINNER", "💰 BET P2P"],
+        ["👤 ACCOUNT", "🎟 REDEEM CODE"],
+        ["👑 OWNER"],
+        ["📢 JOIN CHANNEL", "🤝 SUPPORT GROUP"]
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
 
     caption_text = (
         "🏏 **Welcome to Cricket Betting Bot!** 🎉\n\n"
@@ -74,7 +73,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "👇 **Use the buttons below to explore!**"
     )
 
-    await update.message.reply_photo(photo=TELEGRAPH_IMAGE_URL, caption=caption_text, reply_markup=reply_markup)
+    await update.message.reply_photo(photo=TELEGRAPH_IMAGE_URL, caption=caption_text, 
 
 # 🔥 Function: Show User Account Info
 async def account(update: Update, context: ContextTypes.DEFAULT_TYPE):
