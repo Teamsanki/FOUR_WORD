@@ -12,8 +12,8 @@ CRIC_API_KEY = "9e143604-da14-46fa-8450-1c794febd46b"
 MONGO_DB_URL = "mongodb+srv://tsgcoder:tsgcoder@cluster0.1sodg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 TELEGRAPH_IMAGE_URL = "https://graph.org/file/d28c8d11173e3742404f6-af0a006bcdf0362c71.jpg"
 OWNER_ID = 7548678061  # Replace with your Telegram User ID
-CHANNEL_ID = -1002100433415  # Replace with your Telegram Channel ID
-SUPPORT_GROUP = https://t.me/+G_DtJakqOMkxMWU1
+CHANNEL_ID = -1002256101563  # Replace with your Telegram Channel ID
+SUPPORT_GROUP = "https://t.me/+G_DtJakqOMkxMWU1"
 # 🔥 Database Setup
 mongo_client = MongoClient(MONGO_DB_URL)
 db = mongo_client["cricket_bet"]
