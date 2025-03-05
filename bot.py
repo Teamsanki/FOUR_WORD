@@ -52,19 +52,20 @@ def get_match_winner():
                 return f"🏆 **Match Winner:** {match['winner_team']}"
     return "❌ No Completed Matches Found"
 
-# # 🔥 Start Command with Structured Buttons
+# 🔥 Function: Start Command with Structured Custom Inline Keyboard
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("📊 Live Score", callback_data="live_score")],
-        [InlineKeyboardButton("🏆 Match Winner", callback_data="match_winner"),
-         InlineKeyboardButton("💰 Bet on Match", callback_data="bet_match")],
-        [InlineKeyboardButton("👑 Owner", url="https://t.me/ll_SANKI_II")],
-        [InlineKeyboardButton("🎟 Redeem Code", callback_data="redeem_code"),
-         InlineKeyboardButton("📢 Join Updates", url="https://t.me/cricketlivescorets")],
-        [InlineKeyboardButton("🤝 Support Group", url=SUPPORT_GROUP)]
+        [InlineKeyboardButton("📊 LIVE SCORE", callback_data="live_score")],  # Row 1
+        [InlineKeyboardButton("🏆 MATCH WINNER", callback_data="match_winner"),
+         InlineKeyboardButton("💰 BET P2P", callback_data="bet_match")],  # Row 2
+        [InlineKeyboardButton("👤 ACCOUNT", callback_data="account"),
+         InlineKeyboardButton("🎟 REDEEM CODE", callback_data="redeem_code")],  # Row 3
+        [InlineKeyboardButton("👑 OWNER", url="https://t.me/ll_SANKI_II")],  # Row 4
+        [InlineKeyboardButton("📢 JOIN CHANNEL", url="https://t.me/cricketlivescorets"),
+         InlineKeyboardButton("🤝 SUPPORT GROUP", url=SUPPORT_GROUP)]  # Last Row
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    
+
     caption_text = (
         "🏏 **Welcome to Cricket Betting Bot!** 🎉\n\n"
         "🔹 *Get Live Scores & Match Results*\n"
@@ -75,6 +76,40 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_photo(photo=TELEGRAPH_IMAGE_URL, caption=caption_text, reply_markup=reply_markup)
 
+# 🔥 Function: Show User Account Info
+async def account(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    user = query.from_user
+
+    # Fetch user data from MongoDB
+    user_data = users_collection.find_one({"user_id": user.id})
+    
+    if not user_data:
+        # If user is not in the database, add them with default coins
+        users_collection.insert_one({"user_id": user.id, "coins": 10})
+        user_data = {"coins": 10}
+
+    coins = user_data.get("coins", 0)
+
+    # Inline Keyboard for Account Actions
+    keyboard = [
+        [InlineKeyboardButton("🎟 Redeem Code", callback_data="redeem_code")],
+        [InlineKeyboardButton("💰 Earn More Coins", url="https://t.me/YOUR_SUPPORT_GROUP")],
+        [InlineKeyboardButton("🔙 Back", callback_data="back_to_main")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    # Send Account Info
+    account_text = f"""
+🆔 **User ID:** `{user.id}`
+👤 **Username:** @{user.username if user.username else "No Username"}
+💰 **Coin Balance:** `{coins} Coins`
+
+🎟 *Use "Redeem Code" to add more coins!*
+💰 *Click "Earn More Coins" for rewards!*
+    """
+    await query.message.edit_text(text=account_text, reply_markup=reply_markup, parse_mode="Markdown")
+    
 # 🔥 Generate Redeem Code (Owner Only)
 async def genrdm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
