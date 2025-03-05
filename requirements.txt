@@ -1,6 +1,5 @@
-python-telegram-bot==20.7  # For Telegram bot functionality
-requests==2.31.0  # For making HTTP requests
-beautifulsoup4==4.12.3  # For web scraping
-pymongo==4.6.1  # For MongoDB database operations
-apscheduler==3.10.4  # For scheduling live score updates
-nest_asyncio==1.6.0  # To fix async event loop issues
+python-telegram-bot==20.0
+requests==2.28.2
+pymongo[srv]==4.3.3
+asyncio==3.4.3
+nest_asyncio==1.5.6
