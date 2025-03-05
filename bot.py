@@ -73,7 +73,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "👇 **Use the buttons below to explore!**"
     )
 
-    await update.message.reply_photo(photo=TELEGRAPH_IMAGE_URL, caption=caption_text, 
+    update.message.reply_photo(photo=TELEGRAPH_IMAGE_URL, caption=caption_text, reply_markup=reply_markup)
 
 # 🔥 Function: Show User Account Info
 async def account(update: Update, context: ContextTypes.DEFAULT_TYPE):
