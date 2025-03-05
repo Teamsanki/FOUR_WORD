@@ -1,153 +1,159 @@
-import logging
-import asyncio
-import nest_asyncio
 import requests
-from bs4 import BeautifulSoup
-from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
+import asyncio
+import random
+import string
 from pymongo import MongoClient
-from googlesearch import search  
+from telegram import Update, Poll, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
-# Set up logging
-logging.basicConfig(format='%(asctime)s - %(name)s - %(levelname)s - %(message)s', level=logging.INFO)
+# 🔥 API & Bot Configurations
+TELEGRAM_TOKEN = "8151465566:AAFWFcBXPE4u7Fb1XeKrBKA8zlh2uGqHlZs"
+CRIC_API_KEY = "9e143604-da14-46fa-8450-1c794febd46b"
+MONGO_DB_URL = "mongodb+srv://tsgcoder:tsgcoder@cluster0.1sodg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
+TELEGRAPH_IMAGE_URL = "https://graph.org/file/d28c8d11173e3742404f6-af0a006bcdf0362c71.jpg"
+OWNER_ID = 7548678061  # Replace with your Telegram User ID
+CHANNEL_ID = -1002100433415  # Replace with your Telegram Channel ID
 
-# MongoDB setup
-mongo_client = MongoClient('mongodb+srv://tsgcoder:tsgcoder@cluster0.1sodg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0')
-db = mongo_client['your_database']
-collection = db['your_collection']
+# 🔥 Database Setup
+mongo_client = MongoClient(MONGO_DB_URL)
+db = mongo_client["cricket_bet"]
+users_collection = db["users"]
+bets_collection = db["bets"]
+redeem_collection = db["redeem_codes"]
 
-# Telegram bot token and IDs
-TELEGRAM_TOKEN = '8151465566:AAFWFcBXPE4u7Fb1XeKrBKA8zlh2uGqHlZs'  
-CHANNEL_ID = '-1002256101563'  
-CHANNEL_LINK = "https://t.me/cricketlivescorets"  
-OWNER_USERNAME = "@ll_SANKI_II"  
-TELEGRAPH_URL = "https://graph.org/file/d28c8d11173e3742404f6-af0a006bcdf0362c71.jpg"  # Replace with Cricket Image
+# 🔥 Function to Fetch Live Matches
+def get_live_matches():
+    url = f"https://cricapi.com/api/matches?apikey={CRIC_API_KEY}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        live_matches = [(match["team-1"], match["team-2"], match["unique_id"])
+                        for match in data["matches"] if match.get("matchStarted")]
+        return live_matches
+    return []
 
-# Function to fetch live score from Google
-def fetch_live_score():
-    query = "Live Cricket Score"
-    headers = {"User-Agent": "Mozilla/5.0"}
-    
-    for result in search(query, num=1, stop=1):
-        response = requests.get(result, headers=headers)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-            score_element = soup.find('div', class_='BNeawe iBp4i AP7Wnd')  
-            if score_element:
-                return score_element.text.strip()
-    
-    return "❌ No Live Match Right Now"
+# 🔥 Function to Get Live Score
+def get_live_score():
+    url = f"https://cricapi.com/api/cricketScore?apikey={CRIC_API_KEY}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        return f"🏏 **Live Score:** {data.get('score', 'No Score Available')}"
+    return "❌ No Live Match Found"
 
-# Function to fetch winner, score & opponent score
-def fetch_today_match_winner():
-    query = "Today Cricket Match Winner and Score site:espncricinfo.com OR site:icc-cricket.com"
-    headers = {"User-Agent": "Mozilla/5.0"}
+# 🔥 Function to Fetch Match Winner
+def get_match_winner():
+    url = f"https://cricapi.com/api/matches?apikey={CRIC_API_KEY}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        for match in data["matches"]:
+            if match.get("matchStarted") and match.get("winner_team"):
+                return f"🏆 **Match Winner:** {match['winner_team']}"
+    return "❌ No Completed Matches Found"
 
-    for result in search(query, num=3, stop=3):
-        response = requests.get(result, headers=headers)
-        if response.status_code == 200:
-            soup = BeautifulSoup(response.text, 'html.parser')
-
-            # ✅ Try extracting Winner Name
-            winner_element = soup.find('meta', property='og:title')  # OpenGraph Meta Tag
-            winner = winner_element['content'] if winner_element else soup.title.text.strip()
-
-            # ✅ Try extracting scores from Google Divs
-            score_elements = soup.find_all('div', class_='BNeawe iBp4i AP7Wnd')
-            if len(score_elements) >= 2:
-                score_winner = score_elements[0].text.strip()
-                score_opponent = score_elements[1].text.strip()
-            else:
-                # ✅ If Google fails, try ESPN's Scorecard Format
-                scorecard = soup.find('div', class_="ds-text-compact-m ds-text-typo ds-text-right ds-whitespace-nowrap")
-                if scorecard:
-                    score_winner = scorecard.text.strip()
-                    score_opponent = "Opponent Score Not Found"
-                else:
-                    score_winner = "❌ Score Not Found"
-                    score_opponent = "❌ Score Not Found"
-
-            return {
-                "winner": winner,
-                "score_winner": score_winner,
-                "score_opponent": score_opponent
-            }
-
-    return None  # If no data found
-
-# Function to send Reply Keyboard (Bottom Buttons)
-def get_reply_keyboard():
-    keyboard = [
-        [KeyboardButton("📊 Get Live Score")],
-        [KeyboardButton("🏆 Match Winner"), KeyboardButton("👑 Owner")],
-        [KeyboardButton("📢 Join for Updates")]
-    ]
-    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
-# Function to start the bot with Custom Buttons
+# # 🔥 Start Command with Structured Buttons
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    live_score = fetch_live_score()
+    keyboard = [
+        [InlineKeyboardButton("📊 Live Score", callback_data="live_score")],
+        [InlineKeyboardButton("🏆 Match Winner", callback_data="match_winner"),
+         InlineKeyboardButton("💰 Bet on Match", callback_data="bet_match")],
+        [InlineKeyboardButton("👑 Owner", url="https://t.me/ll_SANKI_II")],
+        [InlineKeyboardButton("🎟 Redeem Code", callback_data="redeem_code"),
+         InlineKeyboardButton("📢 Join Updates", url="https://t.me/cricketlivescorets")],
+        [InlineKeyboardButton("🤝 Support Group", url=SUPPORT_GROUP)]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    caption_text = (
+        "🏏 **Welcome to Cricket Betting Bot!** 🎉\n\n"
+        "🔹 *Get Live Scores & Match Results*\n"
+        "🔹 *Bet & Earn Points*\n"
+        "🔹 *Redeem Coins & Join Exciting Matches*\n\n"
+        "👇 **Use the buttons below to explore!**"
+    )
 
-    welcome_message = f"🎉 Welcome {update.message.from_user.first_name} to Cricket Live Score Bot! 🏏\n\n" \
-                      "📊 Stay Updated with Live Scores, Match Highlights, and More!"
+    await update.message.reply_photo(photo=TELEGRAPH_IMAGE_URL, caption=caption_text, reply_markup=reply_markup)
 
-    await update.message.reply_photo(photo=TELEGRAPH_URL, caption=welcome_message, reply_markup=get_reply_keyboard())
-    await update.message.reply_text(f"🏏 **Live Score:**\n{live_score}", reply_markup=get_reply_keyboard())
+# 🔥 Generate Redeem Code (Owner Only)
+async def genrdm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.from_user.id != OWNER_ID:
+        await update.message.reply_text("🚫 Only the bot owner can generate redeem codes.")
+        return
 
-# Function to handle button clicks
-async def handle_button_click(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
+    if len(context.args) < 1:
+        await update.message.reply_text("⚠ Usage: `/genrdm <amount>`")
+        return
 
-    if text == "📊 Get Live Score":
-        live_score = fetch_live_score()
-        await update.message.reply_text(f"🏏 **Live Score:**\n{live_score}", reply_markup=get_reply_keyboard())
+    amount = int(context.args[0])
+    code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
 
-    elif text == "🏆 Match Winner":
-        winner_info = fetch_today_match_winner()  # ✅ FIXED FUNCTION NAME
-        if winner_info:
-            caption = f"🏆 **Match Winner:** {winner_info['winner']}\n\n" \
-                      f"✅ **Winner Score:** {winner_info['score_winner']}\n" \
-                      f"❌ **Opponent Score:** {winner_info['score_opponent']}"
-            await update.message.reply_text(caption, reply_markup=get_reply_keyboard())
-        else:
-            await update.message.reply_text("❌ No winner info found!", reply_markup=get_reply_keyboard())
+    redeem_collection.insert_one({"code": code, "amount": amount, "used": False})
+    await update.message.reply_text(f"✅ Redeem Code Created: `{code}` for {amount} coins.")
 
-    elif text == "👑 Owner":
-        await update.message.reply_text(f"👑 **Bot Owner:** {OWNER_USERNAME}", reply_markup=get_reply_keyboard())
+# 🔥 Redeem Coins Using Code
+async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if len(context.args) < 1:
+        await update.message.reply_text("⚠ Usage: `/redeem <code>`")
+        return
 
-    elif text == "📢 Join for Updates":
-        await update.message.reply_text(f"📢 **Join Our Channel for Latest Updates:**\n{CHANNEL_LINK}", reply_markup=get_reply_keyboard())
+    code = context.args[0]
+    user = update.message.from_user
 
-# Function to send updates to the channel (Only Winner & Score, No Image)
-async def send_updates_to_channel(context: ContextTypes.DEFAULT_TYPE):
-    live_score = fetch_live_score()
+    redeem_entry = redeem_collection.find_one({"code": code, "used": False})
+    if not redeem_entry:
+        await update.message.reply_text("❌ Invalid or already used redeem code.")
+        return
 
-    if live_score and "❌" not in live_score:  # If Match is Live
-        await context.bot.send_message(chat_id=CHANNEL_ID, text=f"🏏 **Live Score Update:**\n{live_score}")
-    else:  # If No Match is Live, Send Winner Update
-        winner_info = fetch_match_winner()
-        if winner_info:
-            caption = f"🏆 **Match Winner:** {winner_info['winner']}\n\n" \
-                      f"✅ **Winner Score:** {winner_info['score_winner']}\n" \
-                      f"❌ **Opponent Score:** {winner_info['score_opponent']}"
-            await context.bot.send_message(chat_id=CHANNEL_ID, text=caption)
-        else:
-            await context.bot.send_message(chat_id=CHANNEL_ID, text="⚡ Stay Tuned for Cricket Updates!")
+    users_collection.update_one({"user_id": user.id}, {"$inc": {"coins": redeem_entry["amount"]}}, upsert=True)
+    redeem_collection.update_one({"code": code}, {"$set": {"used": True}})
 
-# Main function to run the bot
+    await update.message.reply_text(f"🎉 Successfully redeemed {redeem_entry['amount']} coins!")
+
+# 🔥 Start Betting in Group
+async def bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.chat.type not in ["group", "supergroup"]:
+        await update.message.reply_text("⚠ Only for groups.")
+        return
+    message = update.message.text.split()
+    if len(message) < 2:
+        await update.message.reply_text("⚠ Usage: `/bet <amount>`")
+        return
+    amount = int(message[1])
+    live_matches = get_live_matches()
+    if not live_matches:
+        await update.message.reply_text("❌ No Live Matches Available.")
+        return
+    bet_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
+    bets_collection.insert_one({
+        "bet_code": bet_code, "group_id": update.message.chat_id, "bet_amount": amount,
+        "users": [], "status": "open", "match_id": live_matches[0][2],
+        "team1": live_matches[0][0], "team2": live_matches[0][1]
+    })
+    await update.message.reply_text(f"✅ Bet Opened!\n💰 Amount: {amount}\n🔗 Code: `{bet_code}`\nUse `/join {bet_code}` to enter!")
+
+# 🔥 Check Match Winner & Distribute Coins
+async def check_winner(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    active_bets = bets_collection.find({"status": "open"})
+    for bet in active_bets:
+        winner = get_match_winner()
+        winning_users = [user for user in bet["users"] if winner in bet["team1"] or winner in bet["team2"]]
+        for user_id in winning_users:
+            users_collection.update_one({"user_id": user_id}, {"$inc": {"coins": bet["bet_amount"] * 2}})
+        await context.bot.send_message(chat_id=bet["group_id"], text=f"🏆 **{winner} Won!** 🎉 Winners received rewards!")
+        bets_collection.update_one({"bet_code": bet["bet_code"]}, {"$set": {"status": "completed"}})
+
+# 🔥 Start Bot
 async def main():
-    application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("genrdm", genrdm))
+    app.add_handler(CommandHandler("redeem", redeem))
+    app.add_handler(CommandHandler("bet", bet))
+    app.add_handler(CommandHandler("checkwinner", check_winner))
+    await app.run_polling()
 
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT, handle_button_click))
-
-    job_queue = application.job_queue
-    job_queue.run_repeating(send_updates_to_channel, interval=60, first=0)  
-
-    await application.run_polling()
-
-nest_asyncio.apply()
-
-if __name__ == '__main__':
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+if __name__ == "__main__":
+    import nest_asyncio
+    nest_asyncio.apply()
+    asyncio.run(main())
