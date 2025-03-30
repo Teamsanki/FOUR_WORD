@@ -1,9 +1,14 @@
 import random
 import re
 import pymongo
+import datetime
+from collections import Counter
 from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton  # ✅ Fix added
-from config import API_ID, API_HASH, BOT_TOKEN, MONGO_URL, DEVELOPER_USERNAME, GROUP_LINK, WELCOME_GIF, SANKI_LINK, FUNNY_REPLIES
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from config import (
+    API_ID, API_HASH, BOT_TOKEN, MONGO_URL, DEVELOPER_USERNAME, GROUP_LINK, 
+    WELCOME_GIF, SANKI_LINK, FUNNY_REPLIES
+)
 
 # 🔹 Bot Initialization
 bot = Client("IndianChatBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
