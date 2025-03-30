@@ -2,19 +2,16 @@ import requests
 import asyncio
 import random
 import string
-from telegram import ReplyKeyboardMarkup
 from pymongo import MongoClient
-from telegram import Update, Poll, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
+from telegram import Update
+from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # 🔥 API & Bot Configurations
 TELEGRAM_TOKEN = "8151465566:AAFWFcBXPE4u7Fb1XeKrBKA8zlh2uGqHlZs"
 CRIC_API_KEY = "9e143604-da14-46fa-8450-1c794febd46b"
 MONGO_DB_URL = "mongodb+srv://tsgcoder:tsgcoder@cluster0.1sodg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-TELEGRAPH_IMAGE_URL = "https://graph.org/file/d28c8d11173e3742404f6-af0a006bcdf0362c71.jpg"
 OWNER_ID = 7548678061  # Replace with your Telegram User ID
-CHANNEL_ID = -1002256101563  # Replace with your Telegram Channel ID
-SUPPORT_GROUP = "https://t.me/+G_DtJakqOMkxMWU1"
+
 # 🔥 Database Setup
 mongo_client = MongoClient(MONGO_DB_URL)
 db = mongo_client["cricket_bet"]
@@ -53,62 +50,41 @@ def get_match_winner():
                 return f"🏆 **Match Winner:** {match['winner_team']}"
     return "❌ No Completed Matches Found"
 
-# 🔥 Function: Start Command with Keyboard Menu
+# 🔥 Function: Start Command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Keyboard Menu Layout
-    keyboard = [
-        ["📊 LIVE SCORE"], 
-        ["🏆 MATCH WINNER", "💰 BET P2P"],
-        ["👤 ACCOUNT", "🎟 REDEEM CODE"],
-        ["👑 OWNER"],
-        ["📢 JOIN CHANNEL", "🤝 SUPPORT GROUP"]
-    ]
-    reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
-
     caption_text = (
         "🏏 **Welcome to Cricket Betting Bot!** 🎉\n\n"
         "🔹 *Get Live Scores & Match Results*\n"
         "🔹 *Bet & Earn Points*\n"
         "🔹 *Redeem Coins & Join Exciting Matches*\n\n"
-        "👇 **Use the buttons below to explore!**"
+        "🔹 Commands:\n"
+        "📊 `/score` - Live Score\n"
+        "🏆 `/winner` - Match Winner\n"
+        "💰 `/bet <amount>` - Start Betting\n"
+        "🎟 `/redeem <code>` - Redeem Code\n"
+        "👤 `/account` - Check Balance\n"
     )
-
-    await update.message.reply_photo(photo=TELEGRAPH_IMAGE_URL, caption=caption_text, reply_markup=reply_markup)
+    await update.message.reply_text(caption_text)
 
 # 🔥 Function: Show User Account Info
 async def account(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    user = query.from_user
-
-    # Fetch user data from MongoDB
+    user = update.message.from_user
     user_data = users_collection.find_one({"user_id": user.id})
     
     if not user_data:
-        # If user is not in the database, add them with default coins
         users_collection.insert_one({"user_id": user.id, "coins": 10})
         user_data = {"coins": 10}
 
     coins = user_data.get("coins", 0)
-
-    # Inline Keyboard for Account Actions
-    keyboard = [
-        [InlineKeyboardButton("🎟 Redeem Code", callback_data="redeem_code")],
-        [InlineKeyboardButton("💰 Earn More Coins", url="https://t.me/YOUR_SUPPORT_GROUP")],
-        [InlineKeyboardButton("🔙 Back", callback_data="back_to_main")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-
-    # Send Account Info
     account_text = f"""
 🆔 **User ID:** `{user.id}`
 👤 **Username:** @{user.username if user.username else "No Username"}
 💰 **Coin Balance:** `{coins} Coins`
 
-🎟 *Use "Redeem Code" to add more coins!*
-💰 *Click "Earn More Coins" for rewards!*
+🎟 *Use `/redeem <code>` to add more coins!*
     """
-    await query.message.edit_text(text=account_text, reply_markup=reply_markup, parse_mode="Markdown")
-    
+    await update.message.reply_text(account_text)
+
 # 🔥 Generate Redeem Code (Owner Only)
 async def genrdm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.from_user.id != OWNER_ID:
@@ -181,6 +157,7 @@ async def check_winner(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def main():
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("account", account))
     app.add_handler(CommandHandler("genrdm", genrdm))
     app.add_handler(CommandHandler("redeem", redeem))
     app.add_handler(CommandHandler("bet", bet))
