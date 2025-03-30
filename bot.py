@@ -30,7 +30,7 @@ def get_live_matches():
         return live_matches
     return []
 
-# 🔥 Function to Get Live Score
+# 🔥 Function to Fetch Live Score
 def get_live_score():
     url = f"https://cricapi.com/api/cricketScore?apikey={CRIC_API_KEY}"
     response = requests.get(url)
@@ -49,6 +49,16 @@ def get_match_winner():
             if match.get("matchStarted") and match.get("winner_team"):
                 return f"🏆 **Match Winner:** {match['winner_team']}"
     return "❌ No Completed Matches Found"
+
+# 🔥 /livescore Command Handler
+async def live_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    score = get_live_score()
+    await update.message.reply_text(score)
+
+# 🔥 /winner Command Handler
+async def match_winner(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    winner = get_match_winner()
+    await update.message.reply_text(winner)
 
 # 🔥 Function: Start Command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -158,6 +168,8 @@ async def main():
     app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("account", account))
+    app.add_handler(CommandHandler("livescore", live_score))
+    app.add_handler(CommandHandler("winner", match_winner))
     app.add_handler(CommandHandler("genrdm", genrdm))
     app.add_handler(CommandHandler("redeem", redeem))
     app.add_handler(CommandHandler("bet", bet))
