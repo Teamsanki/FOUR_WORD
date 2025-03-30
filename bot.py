@@ -31,7 +31,14 @@ async def send_greeting(client, message):
         async for member in app.get_chat_members(chat_id):
             if not member.user.is_bot:
                 await asyncio.sleep(0.2)
-                await app.send_message(chat_id, f"{messages[command]}\n[{member.user.first_name}](tg://user?id={member.user.id})", parse_mode="markdown2")
+                try:
+                    await app.send_message(
+                        chat_id, 
+                        f"{messages[command]}\n[{member.user.first_name}](tg://user?id={member.user.id})", 
+                        parse_mode="markdown2"
+                    )
+                except Exception as e:
+                    print(f"Error sending message: {e}")
 
 # Festivals Messages
 festival_messages = {
@@ -56,7 +63,10 @@ async def check_festival(client, message):
     today = datetime.now().strftime("%d-%m")
     if today in festival_messages:
         chat_id = message.chat.id
-        await app.send_message(chat_id, festival_messages[today], parse_mode="markdown")
+        try:
+            await app.send_message(chat_id, festival_messages[today], parse_mode="markdown2")
+        except Exception as e:
+            print(f"Error sending festival message: {e}")
 
 # Special Birthday Message for 8th June
 @app.on_message(filters.me)
@@ -65,8 +75,11 @@ async def birthday_announcement(client, message):
     if today == "08-06":
         chat_id = message.chat.id
         birthday_message = "**🎂🎉 Happy Birthday to Our Special One! 🎉🎂**\n@your_username"
-        sent_message = await app.send_message(chat_id, birthday_message, parse_mode="markdown")
-        await app.pin_chat_message(chat_id, sent_message.message_id, disable_notification=False)
+        try:
+            sent_message = await app.send_message(chat_id, birthday_message, parse_mode="markdown2")
+            await app.pin_chat_message(chat_id, sent_message.message_id, disable_notification=False)
+        except Exception as e:
+            print(f"Error in birthday announcement: {e}")
 
 # Auto Welcome Message for New Members
 @app.on_chat_member_updated()
@@ -75,7 +88,10 @@ async def welcome(client: Client, update: ChatMemberUpdated):
         user = update.new_chat_member.user
         chat_id = update.chat.id
         welcome_message = f"**✨ Welcome, [{user.first_name}](tg://user?id={user.id})! ✨**"
-        await client.send_message(chat_id, welcome_message, parse_mode="markdown")
+        try:
+            await client.send_message(chat_id, welcome_message, parse_mode="markdown2")
+        except Exception as e:
+            print(f"Error sending welcome message: {e}")
 
 # **Message Store in MongoDB**
 @app.on_message(filters.group & ~filters.bot)
@@ -101,8 +117,14 @@ async def auto_reply(client, message):
 
     if stored_messages:
         random_msg = random.choice(stored_messages)["text"]
-        await message.reply_text(f"**{random_msg}**")
+        try:
+            await message.reply_text(f"**{random_msg}**", parse_mode="markdown2")
+        except Exception as e:
+            print(f"Error sending random reply: {e}")
     else:
-        await message.reply_text("**Kya haal hain bhai log? 😊**")
+        try:
+            await message.reply_text("**Kya haal hain bhai log? 😊**", parse_mode="markdown2")
+        except Exception as e:
+            print(f"Error sending default reply: {e}")
 
 app.run()
