@@ -2,12 +2,14 @@ import random
 import re
 import pymongo
 import datetime
+import asyncio
+import requests
 from collections import Counter
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from config import (
     API_ID, API_HASH, BOT_TOKEN, MONGO_URL, DEVELOPER_USERNAME, GROUP_LINK, 
-    WELCOME_GIF, SANKI_LINK, FUNNY_REPLIES
+    WELCOME_GIF, SANKI_LINK, FUNNY_REPLIES, ABUSE_WORDS, GROUP_CHAT_ID
 )
 
 # 🔹 Bot Initialization
@@ -27,7 +29,7 @@ async def start(_, message):
         [InlineKeyboardButton("📜 Help", callback_data="help")]
     ])
     
-    await message.reply_photo(WELCOME_GIF, caption="🤖 **Indian Chatting Club Bot**\nMain yahan aapki madad aur security ke liye hoon!", reply_markup=buttons)
+    await message.reply_video(WELCOME_GIF, caption="🤖 **Indian Chatting Club Bot**\nMain yahan aapki madad aur security ke liye hoon!", reply_markup=buttons)
 
 # ✅ Help Section
 @bot.on_callback_query(filters.regex("help"))
@@ -68,10 +70,10 @@ async def check_bio(_, update):
     if user and user.bio and ("http" in user.bio or "t.me" in user.bio):
         await bot.send_message(update.chat.id, f"⚠️ {user.user.mention}, apke bio me link hai. Isko hatao warna action liya jayega!")
 
-# ✅ DM Request Detection (Warn Message)
 @bot.on_message(filters.text & filters.group)
 async def check_dm_request(_, message):
-    if re.search(r"dm me aao|mujhe dm karo", message.text.lower()):
+    text = message.text.lower()  # ✅ Fix: Pehle text lowercase me convert karo
+    if re.search(r"dm|msg", text):
         await message.reply(f"⚠️ {message.from_user.mention}, bina permission DM mat karo!", quote=True)
 
 # ✅ Welcome New User (GIF + Caption + Inline Button)
@@ -96,12 +98,15 @@ async def connect_group(_, message):
                 group_collection.insert_one({"group_link": link_msg.text, "owner_msg": msg.text})
                 await message.reply("✅ Message save ho gaya! Bot aapke group ke admins ko ye bhejega.")
 
-# ✅ /utag (Tag All Users)
 @bot.on_message(filters.command("utag") & filters.group)
 async def tag_all_users(_, message: Message):
     chat_id = message.chat.id
-    members = [member.user for member in await bot.get_chat_members(chat_id) if not member.user.is_bot]
+    members = []
     
+    async for member in bot.get_chat_members(chat_id):
+        if not member.user.is_bot:
+            members.append(member.user)
+
     if not members:
         await message.reply("❌ Group me koi member nahi hai!")
         return
@@ -114,11 +119,14 @@ async def tag_all_users(_, message: Message):
 
     await message.reply(tag_text + custom_msg)
 
-# ✅ /atag (Tag All Admins)
 @bot.on_message(filters.command("atag") & filters.group)
 async def tag_admins(_, message: Message):
     chat_id = message.chat.id
-    admins = [member.user for member in await bot.get_chat_members(chat_id, filter="administrators") if not member.user.is_bot]
+    admins = []
+    
+    async for member in bot.get_chat_members(chat_id, filter="administrators"):
+        if not member.user.is_bot:
+            admins.append(member.user)
 
     if not admins:
         await message.reply("❌ Group me koi admin nahi hai!")
@@ -185,31 +193,33 @@ async def send_festival_message(chat_id):
     else:
         await bot.send_message(chat_id, festival_msg, reply_markup=buttons)
 
-# ✅ Function: Best Message of the Day
-best_message = {"user": None, "message": "", "likes": 0}
+best_message = {"user": None, "message": "", "likes": 0, "message_id": None}
 
+#best msg
 @bot.on_message(filters.text & filters.group)
 async def track_best_message(_, message):
     if "👍" in message.text or "❤️" in message.text:
         if message.reply_to_message and message.reply_to_message.from_user:
             if message.reply_to_message.from_user.id == message.from_user.id:
-                return  # Apne message ko like nahi kar sakte
-
-            if best_message["likes"] < 5:  # Minimum 5 likes hone chahiye
+                return  # ✅ Apne message ko like nahi kar sakte
+            
+            msg_id = message.reply_to_message.message_id
+            if best_message["message_id"] == msg_id:
+                best_message["likes"] += 1  # ✅ Agar same message hai to likes badhao
+            else:
                 best_message.update({
                     "user": message.reply_to_message.from_user.mention,
                     "message": message.reply_to_message.text,
-                    "likes": best_message["likes"] + 1
+                    "likes": 1,  # ✅ Naya message aaya hai to like 1 se shuru karo
+                    "message_id": msg_id
                 })
-
-# ✅ /bestmsg Command
 @bot.on_message(filters.command("bestmsg") & filters.group)
 async def best_msg_command(_, message):
-    if best_message["user"]:
+    if best_message["user"] and best_message["likes"] >= 5:  # ✅ At least 5 likes hone chahiye
         await message.reply(f"🏆 **Best Message of the Day!**\n\n👤 {best_message['user']}\n📝 {best_message['message']}\n❤️ {best_message['likes']} Likes!")
     else:
-        await message.reply("❌ Aaj tak koi best message select nahi hua!")
-
+        await message.reply("❌ Aaj tak koi best message select nahi hua ya 5 likes nahi mile!")
+        
 # ✅ Schedule Festival Messages
 async def schedule_festival_messages():
     while True:
@@ -240,11 +250,12 @@ async def send_top_members():
             await bot.send_message(GROUP_CHAT_ID, msg)
         user_messages.clear()
 
-# ✅ AI-Based Funny Reply System
 @bot.on_message(filters.text & filters.group)
 async def auto_reply(_, message):
-    if message.reply_to_message is None and not message.entities:
-        reply = random.choice(FUNNY_REPLIES)
-        await message.reply(reply)
+    if message.reply_to_message or message.entities:
+        return  # Agar reply ya koi link hai to ignore karo
+    
+    reply = random.choice(FUNNY_REPLIES)  # ✅ Fix: Properly random reply select karo
+    await message.reply(reply)
 
 bot.run()
