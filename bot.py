@@ -3,6 +3,7 @@ import re
 import pymongo
 import datetime
 import asyncio
+import openai
 from collections import Counter
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
@@ -206,6 +207,51 @@ async def auto_reply(_, message):
     if FUNNY_REPLIES:  # ✅ Agar FUNNY_REPLIES list empty nahi hai
         reply_text = random.choice(FUNNY_REPLIES)  # ✅ Random Reply Choose Karo
         await message.reply(reply_text)
+
+# ✅ OpenAI API Key (Yahan apni API key daalo)
+OPENAI_API_KEY = "YOUR_OPENAI_API_KEY"
+
+# ✅ Function: GPT Se 18+ Content Detect Karna
+async def is_adult_content(text):
+    response = openai.ChatCompletion.create(
+        model="gpt-4",
+        messages=[{"role": "system", "content": "Detect if the given text contains NSFW or adult content."},
+                  {"role": "user", "content": text}],
+        api_key=OPENAI_API_KEY
+    )
+    result = response["choices"][0]["message"]["content"]
+    return "yes" in result.lower()
+
+# ✅ 18+ Sticker/GIF Auto Ban
+@bot.on_message((filters.sticker | filters.animation) & filters.group)
+async def check_adult_content(_, message):
+    chat_id = message.chat.id
+    user_id = message.from_user.id
+    chat_member = await bot.get_chat_member(chat_id, user_id)
+    is_group_owner = chat_member.status == "owner"
+
+    # ✅ Bot Owner ID (Config me define karo)
+    BOT_OWNER_ID = 123456789  # 👈 Apna Telegram ID likho
+
+    is_adult = False
+    
+    # ✅ Telegram AI Filter Se 18+ Content Detect Karna
+    if message.sticker and message.sticker.is_animated:
+        is_adult = message.sticker.emoji in ["🍆", "🍑", "🔞", "😈"]  
+    elif message.animation:
+        if message.caption:
+            is_adult = await is_adult_content(message.caption)  # ✅ GPT Se Check Karega
+    else:
+        is_adult = False
+
+    if is_adult:
+        await message.delete()  # ✅ Message Delete Karega
+        
+        if user_id == BOT_OWNER_ID or is_group_owner:
+            await message.reply(f"⚠️ **Sir, aap owner hoke 18+ content mat bhejiye!**", quote=True)
+        else:
+            await bot.ban_chat_member(chat_id, user_id)
+            await bot.send_message(chat_id, f"❌ {message.from_user.mention} ne 18+ sticker/GIF bheja, isliye ban kar diya gaya!")
 
 # ✅ Run Bot
 bot.run()
