@@ -32,7 +32,7 @@ ABUSE_WORDS = [
 ]
 
 # ✅ 500 Funny Replies List
-funny_replies = [
+FUNNY_REPLIES = [
     "Bhai, tu sach bol raha hai ya sapne dekh raha hai? 😂",
     "Haan haan, bilkul sahi baat! (Jo bhi tune bola wo samajh nahi aaya) 🤣",
     "Aree bhai, thoda relax ho ja, kahin dimag fry na ho jaye! 😆",
