@@ -209,7 +209,7 @@ async def auto_reply(_, message):
         await message.reply(reply_text)
 
 # ✅ OpenAI API Key (Yahan apni API key daalo)
-OPENAI_API_KEY = "YOUR_OPENAI_API_KEY"
+OPENAI_API_KEY = "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"
 
 # ✅ Function: GPT Se 18+ Content Detect Karna
 async def is_adult_content(text):
