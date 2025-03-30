@@ -1,182 +1,108 @@
-import requests
+from pyrogram import Client, filters
+from pyrogram.types import ChatMemberUpdated
+from pymongo import MongoClient
+from datetime import datetime
 import asyncio
 import random
-import string
-from pymongo import MongoClient
-from telegram import Update
-from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
-# 🔥 API & Bot Configurations
-TELEGRAM_TOKEN = "8151465566:AAFWFcBXPE4u7Fb1XeKrBKA8zlh2uGqHlZs"
-CRIC_API_KEY = "9e143604-da14-46fa-8450-1c794febd46b"
-MONGO_DB_URL = "mongodb+srv://tsgcoder:tsgcoder@cluster0.1sodg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-OWNER_ID = 7548678061  # Replace with your Telegram User ID
+API_ID = 24740695  # Apni API ID yaha daalo
+API_HASH = "a95990848f2b93b8131a4a7491d97092"  # Apna API Hash yaha daalo
+STRING_SESSION = "BQF5g1cALeMyxZWYBkA6oOnJrUO1ObNWOyWJ7r4NU_LCjD9Drh4uXOUaAc5nVT0-rH-wYsL0j6e6LojtFfxI4ZxdmyBdy_gMZ2iVAJtocFt2R04GK7YRHB1hKKHUVCL1c4y_pCIA1ot4OMKsMyISrw4UgpJBZzbPcNv2IGIlimmmD_7IwRln2TwUuR_sEKRF0MJATiLVhJosCJcnMa5JW2CE65PKYoIaehxsaj_c18qaUkR7Fa9ZzPkQ09pk7lNlK2sfEYCxS7gWRIE4Wbo-EdtEfpjoVljV4z2-fMDM0a8KzQBjp5hpT2wLxuExK1-GLpK5Akm0NFrq1P2P-f5nsE_vrvk30AAAAAHXmBLDAA"  # Yaha apna session paste karo
+MONGO_URL = "mongodb+srv://tsgcoder:tsgcoder@cluster0.1sodg.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"  # Yaha MongoDB URL paste karo
 
-# 🔥 Database Setup
-mongo_client = MongoClient(MONGO_DB_URL)
-db = mongo_client["cricket_bet"]
-users_collection = db["users"]
-bets_collection = db["bets"]
-redeem_collection = db["redeem_codes"]
+app = Client("userbot", api_id=API_ID, api_hash=API_HASH, session_string=STRING_SESSION)
+mongo_client = MongoClient(MONGO_URL)
+db = mongo_client["TelegramChatDB"]
+collection = db["Messages"]
 
-# 🔥 Function to Fetch Live Matches
-def get_live_matches():
-    url = f"https://cricapi.com/api/matches?apikey={CRIC_API_KEY}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        live_matches = [(match["team-1"], match["team-2"], match["unique_id"])
-                        for match in data["matches"] if match.get("matchStarted")]
-        return live_matches
-    return []
+# Commands ke liye messages
+messages = {
+    "morning": "**🌞 Good Morning Everyone! 🌞**",
+    "afternoon": "**🌞 Good Afternoon Everyone! 🌞**",
+    "evening": "**🌆 Good Evening Everyone! 🌆**",
+    "night": "**🌙 Good Night Everyone! 🌙**"
+}
 
-# 🔥 Function to Fetch Live Score
-def get_live_score():
-    url = f"https://cricapi.com/api/cricketScore?apikey={CRIC_API_KEY}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        return f"🏏 **Live Score:** {data.get('score', 'No Score Available')}"
-    return "❌ No Live Match Found"
+@app.on_message(filters.command(["morning", "afternoon", "evening", "night"]) & filters.me)
+async def send_greeting(client, message):
+    command = message.text.lstrip("/")
+    if command in messages:
+        chat_id = message.chat.id
+        async for member in app.get_chat_members(chat_id):
+            if not member.user.is_bot:
+                await asyncio.sleep(0.2)
+                await app.send_message(chat_id, f"{messages[command]}\n[{member.user.first_name}](tg://user?id={member.user.id})", parse_mode="markdown")
 
-# 🔥 Function to Fetch Match Winner
-def get_match_winner():
-    url = f"https://cricapi.com/api/matches?apikey={CRIC_API_KEY}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        data = response.json()
-        for match in data["matches"]:
-            if match.get("matchStarted") and match.get("winner_team"):
-                return f"🏆 **Match Winner:** {match['winner_team']}"
-    return "❌ No Completed Matches Found"
+# Festivals Messages
+festival_messages = {
+    "01-01": "**🎉 Happy New Year! 🎉**",
+    "26-01": "**🇮🇳 Happy Republic Day! 🇮🇳**",
+    "15-08": "**🇮🇳 Happy Independence Day! 🇮🇳**",
+    "02-10": "**🕊️ Happy Gandhi Jayanti! 🕊️**",
+    "14-01": "**🌾 Makar Sankranti! 🪁**",
+    "26-01": "**🔥 Happy Lohri! 🔥**",
+    "29-03": "**🎨 Happy Holi! 🌈**",
+    "14-04": "**🎉 Happy Baisakhi! 🌾**",
+    "09-04": "**🙏 Ram Navami! 🏹**",
+    "07-09": "**🚩 Ganesh Chaturthi! 🐘**",
+    "04-11": "**🪔 Happy Diwali! 🎇**",
+    "09-04": "**🌙 Ramadan Mubarak! 🌙**",
+    "12-04": "**🕌 Eid-ul-Fitr Mubarak! 🌙**",
+    "18-06": "**🕋 Eid-ul-Adha Mubarak! 🌙**"
+}
 
-# 🔥 /livescore Command Handler
-async def live_score(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    score = get_live_score()
-    await update.message.reply_text(score)
+@app.on_message(filters.me)
+async def check_festival(client, message):
+    today = datetime.now().strftime("%d-%m")
+    if today in festival_messages:
+        chat_id = message.chat.id
+        await app.send_message(chat_id, festival_messages[today], parse_mode="markdown")
 
-# 🔥 /winner Command Handler
-async def match_winner(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    winner = get_match_winner()
-    await update.message.reply_text(winner)
+# Special Birthday Message for 8th June
+@app.on_message(filters.me)
+async def birthday_announcement(client, message):
+    today = datetime.now().strftime("%d-%m")
+    if today == "08-06":
+        chat_id = message.chat.id
+        birthday_message = "**🎂🎉 Happy Birthday to Our Special One! 🎉🎂**\n@your_username"
+        sent_message = await app.send_message(chat_id, birthday_message, parse_mode="markdown")
+        await app.pin_chat_message(chat_id, sent_message.message_id, disable_notification=False)
 
-# 🔥 Function: Start Command
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    caption_text = (
-        "🏏 **Welcome to Cricket Betting Bot!** 🎉\n\n"
-        "🔹 *Get Live Scores & Match Results*\n"
-        "🔹 *Bet & Earn Points*\n"
-        "🔹 *Redeem Coins & Join Exciting Matches*\n\n"
-        "🔹 Commands:\n"
-        "📊 `/score` - Live Score\n"
-        "🏆 `/winner` - Match Winner\n"
-        "💰 `/bet <amount>` - Start Betting\n"
-        "🎟 `/redeem <code>` - Redeem Code\n"
-        "👤 `/account` - Check Balance\n"
-    )
-    await update.message.reply_text(caption_text)
+# Auto Welcome Message for New Members
+@app.on_chat_member_updated()
+async def welcome(client: Client, update: ChatMemberUpdated):
+    if update.new_chat_member:
+        user = update.new_chat_member.user
+        chat_id = update.chat.id
+        welcome_message = f"**✨ Welcome, [{user.first_name}](tg://user?id={user.id})! ✨**"
+        await client.send_message(chat_id, welcome_message, parse_mode="markdown")
 
-# 🔥 Function: Show User Account Info
-async def account(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.message.from_user
-    user_data = users_collection.find_one({"user_id": user.id})
-    
-    if not user_data:
-        users_collection.insert_one({"user_id": user.id, "coins": 10})
-        user_data = {"coins": 10}
+# **Message Store in MongoDB**
+@app.on_message(filters.group & ~filters.bot)
+async def store_message(client, message):
+    if message.reply_to_message or message.entities:
+        return  # Agar reply ya tag hai to ignore kare
 
-    coins = user_data.get("coins", 0)
-    account_text = f"""
-🆔 **User ID:** `{user.id}`
-👤 **Username:** @{user.username if user.username else "No Username"}
-💰 **Coin Balance:** `{coins} Coins`
+    chat_id = message.chat.id
+    user_id = message.from_user.id
+    text = message.text
 
-🎟 *Use `/redeem <code>` to add more coins!*
-    """
-    await update.message.reply_text(account_text)
+    if text:
+        collection.insert_one({"chat_id": chat_id, "user_id": user_id, "text": text})
 
-# 🔥 Generate Redeem Code (Owner Only)
-async def genrdm(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.from_user.id != OWNER_ID:
-        await update.message.reply_text("🚫 Only the bot owner can generate redeem codes.")
-        return
+# **Koi bhi bina tag/reply ke message likhe to DB se random reply bheje**
+@app.on_message(filters.group & filters.text & ~filters.bot)
+async def auto_reply(client, message):
+    if message.reply_to_message or message.entities:
+        return  # Agar reply ya tag hai to ignore kare
 
-    if len(context.args) < 1:
-        await update.message.reply_text("⚠ Usage: `/genrdm <amount>`")
-        return
+    chat_id = message.chat.id
+    stored_messages = list(collection.find({"chat_id": chat_id}, {"text": 1, "_id": 0}))
 
-    amount = int(context.args[0])
-    code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=10))
+    if stored_messages:
+        random_msg = random.choice(stored_messages)["text"]
+        await message.reply_text(f"**{random_msg}**")
+    else:
+        await message.reply_text("**Kya haal hain bhai log? 😊**")
 
-    redeem_collection.insert_one({"code": code, "amount": amount, "used": False})
-    await update.message.reply_text(f"✅ Redeem Code Created: `{code}` for {amount} coins.")
-
-# 🔥 Redeem Coins Using Code
-async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if len(context.args) < 1:
-        await update.message.reply_text("⚠ Usage: `/redeem <code>`")
-        return
-
-    code = context.args[0]
-    user = update.message.from_user
-
-    redeem_entry = redeem_collection.find_one({"code": code, "used": False})
-    if not redeem_entry:
-        await update.message.reply_text("❌ Invalid or already used redeem code.")
-        return
-
-    users_collection.update_one({"user_id": user.id}, {"$inc": {"coins": redeem_entry["amount"]}}, upsert=True)
-    redeem_collection.update_one({"code": code}, {"$set": {"used": True}})
-
-    await update.message.reply_text(f"🎉 Successfully redeemed {redeem_entry['amount']} coins!")
-
-# 🔥 Start Betting in Group
-async def bet(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.chat.type not in ["group", "supergroup"]:
-        await update.message.reply_text("⚠ Only for groups.")
-        return
-    message = update.message.text.split()
-    if len(message) < 2:
-        await update.message.reply_text("⚠ Usage: `/bet <amount>`")
-        return
-    amount = int(message[1])
-    live_matches = get_live_matches()
-    if not live_matches:
-        await update.message.reply_text("❌ No Live Matches Available.")
-        return
-    bet_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
-    bets_collection.insert_one({
-        "bet_code": bet_code, "group_id": update.message.chat_id, "bet_amount": amount,
-        "users": [], "status": "open", "match_id": live_matches[0][2],
-        "team1": live_matches[0][0], "team2": live_matches[0][1]
-    })
-    await update.message.reply_text(f"✅ Bet Opened!\n💰 Amount: {amount}\n🔗 Code: `{bet_code}`\nUse `/join {bet_code}` to enter!")
-
-# 🔥 Check Match Winner & Distribute Coins
-async def check_winner(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    active_bets = bets_collection.find({"status": "open"})
-    for bet in active_bets:
-        winner = get_match_winner()
-        winning_users = [user for user in bet["users"] if winner in bet["team1"] or winner in bet["team2"]]
-        for user_id in winning_users:
-            users_collection.update_one({"user_id": user_id}, {"$inc": {"coins": bet["bet_amount"] * 2}})
-        await context.bot.send_message(chat_id=bet["group_id"], text=f"🏆 **{winner} Won!** 🎉 Winners received rewards!")
-        bets_collection.update_one({"bet_code": bet["bet_code"]}, {"$set": {"status": "completed"}})
-
-# 🔥 Start Bot
-async def main():
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("account", account))
-    app.add_handler(CommandHandler("livescore", live_score))
-    app.add_handler(CommandHandler("winner", match_winner))
-    app.add_handler(CommandHandler("genrdm", genrdm))
-    app.add_handler(CommandHandler("redeem", redeem))
-    app.add_handler(CommandHandler("bet", bet))
-    app.add_handler(CommandHandler("checkwinner", check_winner))
-    await app.run_polling()
-
-if __name__ == "__main__":
-    import nest_asyncio
-    nest_asyncio.apply()
-    asyncio.run(main())
+app.run()
