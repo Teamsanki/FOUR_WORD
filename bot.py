@@ -31,7 +31,7 @@ async def send_greeting(client, message):
         async for member in app.get_chat_members(chat_id):
             if not member.user.is_bot:
                 await asyncio.sleep(0.2)
-                await app.send_message(chat_id, f"{messages[command]}\n[{member.user.first_name}](tg://user?id={member.user.id})", parse_mode="markdown")
+                await app.send_message(chat_id, f"{messages[command]}\n[{member.user.first_name}](tg://user?id={member.user.id})", parse_mode="markdown2")
 
 # Festivals Messages
 festival_messages = {
