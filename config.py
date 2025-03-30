@@ -15,6 +15,7 @@ GROUP_LINK = "https://t.me/+QPSshOWJThczMWU1"
 # 🔹 Welcome GIF & Inline Button
 WELCOME_GIF = "https://firebasestorage.googleapis.com/v0/b/social-bite-skofficial.appspot.com/o/SANKI%2FBlack%20and%20Orange%20Modern%20Welcome%20to%20My%20Channel%20Video.mp4?alt=media&token=8971920d-151c-4a38-8fe0-8b1d3303eb65"  # ⚠️ Apni GIF ka link yahan daalo
 SANKI_LINK = "https://t.me/AboutSanki"
+GROUP_CHAT_ID = -1002590971976
 # 🔹 Abuse Words List (Hindi + English + Short Forms)
 ABUSE_WORDS = [
     "bc", "bkl", "mc", "mkc", "chutiya", "chutiyapa", "bsdk", "madarchod", "behenchod",
