@@ -3,7 +3,6 @@ import re
 import pymongo
 import datetime
 import asyncio
-import requests
 from collections import Counter
 from pyrogram import Client, filters
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
@@ -12,10 +11,9 @@ from config import (
     WELCOME_GIF, SANKI_LINK, FUNNY_REPLIES, ABUSE_WORDS, GROUP_CHAT_ID
 )
 
-# 🔹 Bot Initialization
 bot = Client("IndianChatBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
 
-# 🔹 MongoDB Connection
+# ✅ MongoDB Connection
 mongo = pymongo.MongoClient(MONGO_URL)
 db = mongo["IndianChatBot"]
 group_collection = db["groups"]
@@ -51,211 +49,146 @@ async def command_info(_, query):
     }
     await query.message.edit_text(f"📌 **/{cmd} Command**\n{info.get(cmd, 'No info available.')}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back", callback_data="help")]]))
 
-# ✅ Back to Main Menu
-@bot.on_callback_query(filters.regex("back_to_main"))
-async def back_main(_, query):
-    await start(_, query.message)
-
-# ✅ Abuse Detection (Auto Ban)
+# ✅ Auto Ban on Abuse
 @bot.on_message(filters.text & filters.group)
 async def check_abuse(_, message):
     if any(word in message.text.lower() for word in ABUSE_WORDS):
         await message.reply(f"🚫 {message.from_user.mention} abuse words use mat karo!", quote=True)
         await bot.ban_chat_member(message.chat.id, message.from_user.id)
 
-# ✅ Bio Link Detection (Warn User)
+# ✅ Warn User for Bio Link
 @bot.on_chat_member_updated
 async def check_bio(_, update):
     user = update.new_chat_member
     if user and user.bio and ("http" in user.bio or "t.me" in user.bio):
         await bot.send_message(update.chat.id, f"⚠️ {user.user.mention}, apke bio me link hai. Isko hatao warna action liya jayega!")
 
+# ✅ Detect DM Request
 @bot.on_message(filters.text & filters.group)
 async def check_dm_request(_, message):
-    text = message.text.lower()  # ✅ Fix: Pehle text lowercase me convert karo
-    if re.search(r"dm|msg", text):
+    if re.search(r"\b(dm|msg)\b", message.text.lower()):
         await message.reply(f"⚠️ {message.from_user.mention}, bina permission DM mat karo!", quote=True)
 
-# ✅ Welcome New User (GIF + Caption + Inline Button)
+# ✅ Welcome New User
 @bot.on_chat_member_updated
 async def welcome_user(_, update):
     if update.new_chat_member:
         buttons = InlineKeyboardMarkup([[InlineKeyboardButton("SANKI", url=SANKI_LINK)]])
         await bot.send_animation(update.chat.id, WELCOME_GIF, caption=f"👋 Welcome {update.new_chat_member.user.mention}!\nHope you enjoy our chat!", reply_markup=buttons)
 
-# ✅ /connect Command (Group Connection & Admin Tagging)
+# ✅ /connect Command (Owner Group Connect & Admin Notice)
 @bot.on_message(filters.command("connect") & filters.private)
 async def connect_group(_, message):
-    await message.reply("🔗 Apne group me bot add karo aur uska link bhejo.")
-    
+    user_id = message.from_user.id
+    await message.reply("🔗 **Apne group me bot add karo aur uska link bhejo!**")
+
     @bot.on_message(filters.text & filters.private)
     async def get_group_link(_, link_msg):
-        if "t.me" in link_msg.text:
-            await message.reply("✍️ Ab message likho jo aap admins ko bhejna chahte ho.")
+        if "t.me" not in link_msg.text:
+            return await link_msg.reply("❌ **Yeh valid group link nahi hai!**")
 
-            @bot.on_message(filters.text & filters.private)
-            async def get_admin_message(_, msg):
-                group_collection.insert_one({"group_link": link_msg.text, "owner_msg": msg.text})
-                await message.reply("✅ Message save ho gaya! Bot aapke group ke admins ko ye bhejega.")
+        group_link = link_msg.text
+        await message.reply("✍️ **Ab ek message likho jo aapke group ke admins ko bhejna hai!**")
 
+        @bot.on_message(filters.text & filters.private)
+        async def get_admin_message(_, msg):
+            admin_message = msg.text
+            group_collection.insert_one({
+                "group_link": group_link,
+                "owner_id": user_id,
+                "admin_msg": admin_message
+            })
+
+            await message.reply("✅ **Group link aur message save ho gaya!**\n🔹 Ab bot aapke group ke admins ko notice bhejega.")
+
+            # ✅ Bot ko group me find karne ke liye
+            async for chat in bot.get_dialogs():
+                if chat.chat.type in ["supergroup", "group"] and chat.chat.invite_link and chat.chat.invite_link in group_link:
+                    group_id = chat.chat.id
+                    break
+            else:
+                return await message.reply("❌ **Bot aapke group me nahi mila! Pehle bot ko group me add karein.**")
+
+            # ✅ Sabhi Admins ka list banane ke liye
+            admins = []
+            async for member in bot.get_chat_members(group_id, filter="administrators"):
+                if not member.user.is_bot:
+                    admins.append(member.user)
+
+            if not admins:
+                return await message.reply("❌ **Aapke group me koi real admin nahi mila!**")
+
+            # ✅ Admins ko tag karne ka format
+            admin_tags = " ".join([f"@{admin.username}" if admin.username else admin.mention for admin in admins])
+            notice_text = f"📢 **Important Notice for Admins!**\n\n{admin_message}\n\n👑 **Owner:** {message.from_user.mention}\n\n{admin_tags}"
+
+            # ✅ Group me notice send + pin karega
+            sent_msg = await bot.send_message(group_id, notice_text)
+            await bot.pin_chat_message(group_id, sent_msg.message_id)
+
+            await message.reply("✅ **Notice successfully group me bhej diya aur pin bhi ho gaya!**")
+
+# ✅ Tag All Users
 @bot.on_message(filters.command("utag") & filters.group)
 async def tag_all_users(_, message: Message):
-    chat_id = message.chat.id
-    members = []
-    
-    async for member in bot.get_chat_members(chat_id):
-        if not member.user.is_bot:
-            members.append(member.user)
-
+    members = [member.user for member in bot.get_chat_members(message.chat.id) if not member.user.is_bot]
     if not members:
-        await message.reply("❌ Group me koi member nahi hai!")
-        return
+        return await message.reply("❌ Group me koi member nahi hai!")
+    tag_text = "👥 **Tagging All Users:**\n" + " ".join([f"@{user.username}" if user.username else user.mention for user in members])
+    await message.reply(tag_text)
 
-    tag_text = "👥 **Tagging All Users:**\n\n"
-    tag_text += " ".join([f"@{user.username}" if user.username else user.mention for user in members])
-    
-    msg_text = message.text.split(maxsplit=1)
-    custom_msg = f"\n\n🗣 **Message:** {msg_text[1]}" if len(msg_text) > 1 else ""
-
-    await message.reply(tag_text + custom_msg)
-
+# ✅ Tag All Admins
 @bot.on_message(filters.command("atag") & filters.group)
 async def tag_admins(_, message: Message):
-    chat_id = message.chat.id
-    admins = []
-    
-    async for member in bot.get_chat_members(chat_id, filter="administrators"):
-        if not member.user.is_bot:
-            admins.append(member.user)
-
+    admins = [member.user for member in bot.get_chat_members(message.chat.id, filter="administrators") if not member.user.is_bot]
     if not admins:
-        await message.reply("❌ Group me koi admin nahi hai!")
-        return
+        return await message.reply("❌ Group me koi admin nahi hai!")
+    tag_text = "👮‍♂️ **Tagging All Admins:**\n" + " ".join([f"@{user.username}" if user.username else user.mention for user in admins])
+    await message.reply(tag_text)
 
-    tag_text = "👮‍♂️ **Tagging All Admins:**\n\n"
-    tag_text += " ".join([f"@{user.username}" if user.username else user.mention for user in admins])
-
-    msg_text = message.text.split(maxsplit=1)
-    custom_msg = f"\n\n🗣 **Message:** {msg_text[1]}" if len(msg_text) > 1 else ""
-
-    await message.reply(tag_text + custom_msg)
-
-# ✅ Function: Send Good Morning/Night Message
+# ✅ Auto Good Morning/Night Messages
 async def send_daily_message(chat_id, message_type):
     quotes = {
-        "morning": [
-            "🌞 **Good Morning!**\nHar naya din ek naye mauke ki tarah hota hai. Khush raho, aage badho!",
-            "☀️ **Subah Ki Taazgi Mubarak Ho!**\nZindagi me naye sapne dekho aur unhe pura karo!"
-        ],
-        "night": [
-            "🌙 **Good Night!**\nAchhe sapne dekho aur ek naye din ke liye tayyar ho jao!",
-            "💤 **Shubh Ratri!**\nAaj ka din jitna bhi tough tha, kal naya din naye umeed lekar aayega!"
-        ]
+        "morning": "🌞 **Good Morning!**\nNaya din naye mauke lekar aata hai!",
+        "night": "🌙 **Good Night!**\nAaj ka din jitna bhi tough tha, kal naya din naye umeed lekar aayega!"
     }
-    
-    image_links = {
-        "morning": "https://telegra.ph/file/3d3c3b5b5d2ff1c4dce90.jpg",
-        "night": "https://telegra.ph/file/bb73189c1ddf0d99a64c2.jpg"
-    }
+    await bot.send_message(chat_id, quotes[message_type])
 
-    caption = random.choice(quotes[message_type])
-    buttons = InlineKeyboardMarkup([[InlineKeyboardButton("SANKI", url=SANKI_LINK)]])
-
-    await bot.send_photo(chat_id, image_links[message_type], caption=caption, reply_markup=buttons)
-
-# ✅ Schedule Morning/Night Messages
 async def schedule_daily_messages():
     while True:
-        now = datetime.now().strftime("%H:%M")
-        if now == "07:00":  # Subah 7 baje Good Morning
+        now = datetime.datetime.now().strftime("%H:%M")
+        if now == "07:00":
             await send_daily_message(GROUP_CHAT_ID, "morning")
-        elif now == "22:00":  # Raat 10 baje Good Night
+        elif now == "22:00":
             await send_daily_message(GROUP_CHAT_ID, "night")
         await asyncio.sleep(60)
 
-# ✅ Function: Festival Auto Message
-async def send_festival_message(chat_id):
-    festivals = [
-        "Holi", "Diwali", "Eid", "Christmas", "Navratri", "Raksha Bandhan", "Baisakhi"
-    ]
-    
-    festival_name = random.choice(festivals)
-    search_url = f"https://www.googleapis.com/customsearch/v1?q={festival_name}+festival&searchType=image&key=YOUR_GOOGLE_API_KEY"
-    
-    response = requests.get(search_url).json()
-    image_url = response["items"][0]["link"] if "items" in response else None
-
-    festival_msg = f"🎉 **{festival_name} Mubarak!**\nAap sabhi ko {festival_name} ki dher saari shubhkamnayein! 🤗"
-
-    buttons = InlineKeyboardMarkup([[InlineKeyboardButton("SANKI", url=SANKI_LINK)]])
-    if image_url:
-        await bot.send_photo(chat_id, image_url, caption=festival_msg, reply_markup=buttons)
-    else:
-        await bot.send_message(chat_id, festival_msg, reply_markup=buttons)
-
+# ✅ Track Best Message
 best_message = {"user": None, "message": "", "likes": 0, "message_id": None}
 
-#best msg
 @bot.on_message(filters.text & filters.group)
 async def track_best_message(_, message):
-    if "👍" in message.text or "❤️" in message.text:
-        if message.reply_to_message and message.reply_to_message.from_user:
-            if message.reply_to_message.from_user.id == message.from_user.id:
-                return  # ✅ Apne message ko like nahi kar sakte
-            
-            msg_id = message.reply_to_message.message_id
-            if best_message["message_id"] == msg_id:
-                best_message["likes"] += 1  # ✅ Agar same message hai to likes badhao
-            else:
-                best_message.update({
-                    "user": message.reply_to_message.from_user.mention,
-                    "message": message.reply_to_message.text,
-                    "likes": 1,  # ✅ Naya message aaya hai to like 1 se shuru karo
-                    "message_id": msg_id
-                })
+    if message.reply_to_message and ("👍" in message.text or "❤️" in message.text):
+        if message.reply_to_message.from_user.id == message.from_user.id:
+            return
+        msg_id = message.reply_to_message.message_id
+        if best_message["message_id"] == msg_id:
+            best_message["likes"] += 1
+        else:
+            best_message.update({"user": message.reply_to_message.from_user.mention, "message": message.reply_to_message.text, "likes": 1, "message_id": msg_id})
+
 @bot.on_message(filters.command("bestmsg") & filters.group)
 async def best_msg_command(_, message):
-    if best_message["user"] and best_message["likes"] >= 5:  # ✅ At least 5 likes hone chahiye
-        await message.reply(f"🏆 **Best Message of the Day!**\n\n👤 {best_message['user']}\n📝 {best_message['message']}\n❤️ {best_message['likes']} Likes!")
+    if best_message["likes"] >= 5:
+        await message.reply(f"🏆 **Best Message of the Day!**\n👤 {best_message['user']}\n📝 {best_message['message']}\n❤️ {best_message['likes']} Likes!")
     else:
-        await message.reply("❌ Aaj tak koi best message select nahi hua ya 5 likes nahi mile!")
-        
-# ✅ Schedule Festival Messages
-async def schedule_festival_messages():
-    while True:
-        now = datetime.now().strftime("%d-%m")  # Check date
-        if now in ["08-03", "25-12", "14-11"]:  # Special Festival Dates
-            await send_festival_message(GROUP_CHAT_ID)
-        await asyncio.sleep(86400)  # 24 Hours Wait
+        await message.reply("❌ Koi best message nahi mila ya 5 likes nahi mile!")
 
-# ✅ Dictionary to track user messages
-user_messages = Counter()
-
-@bot.on_message(filters.text & filters.group)
-async def count_messages(_, message):
-    user_id = message.from_user.id
-    user_messages[user_id] += 1
-
-# ✅ Function to send weekly top members list
-async def send_top_members():
-    while True:
-        await asyncio.sleep(604800)  # 7 din (1 week)
-        if user_messages:
-            sorted_users = user_messages.most_common(5)
-            msg = "**🏆 Weekly Top Members 🏆**\n\n"
-            for rank, (user_id, msg_count) in enumerate(sorted_users, start=1):
-                user = await bot.get_users(user_id)
-                msg += f"**{rank}. {user.mention}** - {msg_count} messages\n"
-            
-            await bot.send_message(GROUP_CHAT_ID, msg)
-        user_messages.clear()
-
+# ✅ Auto Reply
 @bot.on_message(filters.text & filters.group)
 async def auto_reply(_, message):
-    if message.reply_to_message or message.entities:
-        return  # Agar reply ya koi link hai to ignore karo
-    
-    reply = random.choice(FUNNY_REPLIES)  # ✅ Fix: Properly random reply select karo
-    await message.reply(reply)
+    if not message.reply_to_message:
+        await message.reply(random.choice(FUNNY_REPLIES))
 
+# ✅ Run Bot
 bot.run()
