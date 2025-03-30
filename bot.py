@@ -239,7 +239,7 @@ async def send_top_members():
 @bot.on_message(filters.text & filters.group)
 async def auto_reply(_, message):
     if message.reply_to_message is None and not message.entities:
-        reply = random.choice(funny_replies)
+        reply = random.choice(FUNNY_REPLIES)
         await message.reply(reply)
 
 bot.run()
