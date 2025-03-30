@@ -76,57 +76,58 @@ async def welcome_user(_, update):
         buttons = InlineKeyboardMarkup([[InlineKeyboardButton("SANKI", url=SANKI_LINK)]])
         await bot.send_animation(update.chat.id, WELCOME_GIF, caption=f"👋 Welcome {update.new_chat_member.user.mention}!\nHope you enjoy our chat!", reply_markup=buttons)
 
-# ✅ /connect Command (Owner Group Connect & Admin Notice)
+# ✅ MongoDB Collection for Connected Groups
+connected_groups = db["connected_groups"]
+
+# ✅ /connect Command (Sirf "https://t.me/" Format Wale Links)
 @bot.on_message(filters.command("connect") & filters.private)
 async def connect_group(_, message):
-    user_id = message.from_user.id
-    await message.reply("🔗 **Apne group me bot add karo aur uska link bhejo!**")
+    await message.reply("🔗 **Apne group ka link bhejo (Sirf 'https://t.me/' format me).**")
 
     @bot.on_message(filters.text & filters.private)
     async def get_group_link(_, link_msg):
-        if "t.me" not in link_msg.text:
-            return await link_msg.reply("❌ **Yeh valid group link nahi hai!**")
+        group_link = link_msg.text.strip()
 
-        group_link = link_msg.text
-        await message.reply("✍️ **Ab ek message likho jo aapke group ke admins ko bhejna hai!**")
+        # ✅ Validate Link (Sirf "https://t.me/" Format Allow)
+        if not group_link.startswith("https://t.me/"):
+            return await link_msg.reply("❌ **Invalid Link!** Sirf 'https://t.me/' format wale links bhejo.")
+
+        await link_msg.reply("✍️ **Ab ek message likho jo bot admins ko bhejega.**")
 
         @bot.on_message(filters.text & filters.private)
         async def get_admin_message(_, msg):
-            admin_message = msg.text
-            group_collection.insert_one({
+            # ✅ Save in Database
+            connected_groups.insert_one({
                 "group_link": group_link,
-                "owner_id": user_id,
-                "admin_msg": admin_message
+                "owner_msg": msg.text
             })
 
-            await message.reply("✅ **Group link aur message save ho gaya!**\n🔹 Ab bot aapke group ke admins ko notice bhejega.")
+            await msg.reply("✅ **Group connect ho gaya! Ab bot admins ko ye message bhejega.**")
 
-            # ✅ Bot ko group me find karne ke liye
-            async for chat in bot.get_dialogs():
-                if chat.chat.type in ["supergroup", "group"] and chat.chat.invite_link and chat.chat.invite_link in group_link:
-                    group_id = chat.chat.id
-                    break
-            else:
-                return await message.reply("❌ **Bot aapke group me nahi mila! Pehle bot ko group me add karein.**")
+            # ✅ Send Notice to Admins in Group
+            group_chat_id = await get_group_id(group_link)  # ✅ Get Group ID from Link
+            if not group_chat_id:
+                return await msg.reply("❌ **Bot ko group me add karo phir connect karo!**")
 
-            # ✅ Sabhi Admins ka list banane ke liye
+            # ✅ Fetch All Admins
             admins = []
-            async for member in bot.get_chat_members(group_id, filter="administrators"):
+            async for member in bot.get_chat_members(group_chat_id, filter="administrators"):
                 if not member.user.is_bot:
-                    admins.append(member.user)
+                    admins.append(member.user.mention)
 
-            if not admins:
-                return await message.reply("❌ **Aapke group me koi real admin nahi mila!**")
+            admin_tags = " ".join(admins) if admins else "No admins found"
 
-            # ✅ Admins ko tag karne ka format
-            admin_tags = " ".join([f"@{admin.username}" if admin.username else admin.mention for admin in admins])
-            notice_text = f"📢 **Important Notice for Admins!**\n\n{admin_message}\n\n👑 **Owner:** {message.from_user.mention}\n\n{admin_tags}"
+            notice_msg = f"📢 **Group Connected!**\n\n🔗 **Group:** {group_link}\n✉ **Message:** {msg.text}\n👮‍♂ **Admins:** {admin_tags}"
+            sent_msg = await bot.send_message(group_chat_id, notice_msg)
+            await sent_msg.pin()  # ✅ Pin the message
 
-            # ✅ Group me notice send + pin karega
-            sent_msg = await bot.send_message(group_id, notice_text)
-            await bot.pin_chat_message(group_id, sent_msg.message_id)
-
-            await message.reply("✅ **Notice successfully group me bhej diya aur pin bhi ho gaya!**")
+# ✅ Function: Get Group ID from Invite Link
+async def get_group_id(group_link):
+    try:
+        chat = await bot.get_chat(group_link)
+        return chat.id
+    except:
+        return None
 
 # ✅ Tag All Users
 @bot.on_message(filters.command("utag") & filters.group)
@@ -184,11 +185,27 @@ async def best_msg_command(_, message):
     else:
         await message.reply("❌ Koi best message nahi mila ya 5 likes nahi mile!")
 
-# ✅ Auto Reply
+# ✅ MongoDB Collection for Auto Replies
+funny_replies_collection = db["funny_replies"]
+
+# ✅ Auto Reply (Random Funny Reply from DB)
 @bot.on_message(filters.text & filters.group)
 async def auto_reply(_, message):
-    if not message.reply_to_message:
-        await message.reply(random.choice(FUNNY_REPLIES))
+    if message.reply_to_message or message.entities:
+        return  # ✅ Agar reply ya koi link hai to ignore karo
+
+    # ✅ MongoDB Collection for Auto Replies
+funny_replies_collection = db["FUNNY_REPLIES"]
+
+# ✅ Auto Reply (Random Funny Reply from Config)
+@bot.on_message(filters.text & filters.group)
+async def auto_reply(_, message):
+    if message.reply_to_message or message.entities:
+        return  # ✅ Agar reply ya koi link hai to ignore karo
+    
+    if FUNNY_REPLIES:  # ✅ Agar FUNNY_REPLIES list empty nahi hai
+        reply_text = random.choice(FUNNY_REPLIES)  # ✅ Random Reply Choose Karo
+        await message.reply(reply_text)
 
 # ✅ Run Bot
 bot.run()
