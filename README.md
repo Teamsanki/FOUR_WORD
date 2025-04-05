@@ -5,11 +5,7 @@ Inspired by **WordSeekBot**, but built with custom logic, cleaner visuals, and u
 
 ---
 
-## 📸 FOUR WORD BOT
-
-![FourWordBot Demo](https://graph.org/file/c0e17724e66a68a2de3a6-5ff173af1d3498d9e7.jpg)
-
-> Real gameplay showing color-coded guesses and emoji feedback
+![FourWordBot Gameplay](https://graph.org/file/abc123456789.jpg)
 
 > Real gameplay showing color-coded guesses and emoji feedback!
 
