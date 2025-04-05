@@ -112,13 +112,13 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     text = update.message.text.lower()
 
-# Only proceed if message has exactly 4 letters and is in English
-if not word.isalpha() or len(word) != 4:
-    return  # Ignore non-guess messages
+    # Ignore all non-4-letter words (so bot won't reply to random chats)
+    if not text.isalpha() or len(text) != 4:
+        return  # silently ignore
 
-if word not in words:
-    await update.message.reply_text("This word is not in my dictionary.")
-    return
+    if text not in WORDS:
+        await update.message.reply_text("This word is not in my dictionary.")
+        return
 
     game = games_col.find_one({"chat_id": chat_id})
     if not game:
@@ -133,7 +133,7 @@ if word not in words:
     guesses.append(text)
     games_col.update_one({"chat_id": chat_id}, {"$set": {"guesses": guesses}})
     feedback = format_feedback(text, correct_word)
-    await update.message.reply_text(f"{feedback} `{text}`", parse_mode="Markdown")
+    await update.message.reply_text(f"{feedback} {text}", parse_mode="Markdown")
 
     if text == correct_word:
         now = datetime.utcnow()
