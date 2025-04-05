@@ -158,7 +158,7 @@ async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await context.bot.send_photo(
         chat_id=chat.id,
         photo=WELCOME_IMAGE_URL,
-        caption="Welcome to *Four Word*! Guess 4-letter words with color feedback.\nUse /new to begin. Owner @ll_SANKI_II",
+        caption="Welcome to *Four Word*! Guess 4-letter words with color feedback.\nUse /new to begin. Owner @SANKINETWORK ",
         parse_mode="Markdown",
         reply_markup=markup
     )
