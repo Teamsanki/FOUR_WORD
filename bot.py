@@ -112,12 +112,12 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     text = update.message.text.lower()
 
-    if len(text) != 4 or not text.isalpha():
-        return
+    if not word.isalpha() or len(word) != 4:
+    return  # Ignore non-guess messages
 
-    if text not in WORDS:
-        await update.message.reply_text("This word is invalid.")
-        return
+if word not in words:
+    await update.message.reply_text("This word is not in my dictionary.")
+    return
 
     game = games_col.find_one({"chat_id": chat_id})
     if not game:
