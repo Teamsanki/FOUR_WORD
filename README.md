@@ -62,7 +62,12 @@ Inspired by **WordSeekBot**, but built with custom logic, cleaner visuals, and u
 - **Custom 4-letter word dictionary**
 
 ---
+## Dev
+- **SUPPORT CHANNEL:** [@SANKINETWORK](https://t.me/SANKINETWORK)
 
+  - **OWNER:** [@ll_SANKI_II](https://t.me/ll_SANKI_II)
+ 
+---
 ## 📎 License
 
 **MIT License** — Feel free to use, fork, or modify!
