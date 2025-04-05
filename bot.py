@@ -112,7 +112,8 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.effective_user
     text = update.message.text.lower()
 
-    if not word.isalpha() or len(word) != 4:
+# Only proceed if message has exactly 4 letters and is in English
+if not word.isalpha() or len(word) != 4:
     return  # Ignore non-guess messages
 
 if word not in words:
