@@ -197,11 +197,11 @@ if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", send_welcome))
-app.add_handler(CommandHandler("new", new_game))
-app.add_handler(CommandHandler("stop", stop_game))
-app.add_handler(CommandHandler("leaderboard", leaderboard))
-app.add_handler(CallbackQueryHandler(leaderboard_callback, pattern=r"^lb_"))
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
-    
+    app.add_handler(CommandHandler("new", new_game))
+    app.add_handler(CommandHandler("stop", stop_game))
+    app.add_handler(CommandHandler("leaderboard", leaderboard))
+    app.add_handler(CallbackQueryHandler(leaderboard_callback, pattern=r"^lb_"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
+
     print("Bot is running...")
     app.run_polling()
