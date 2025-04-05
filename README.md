@@ -1,13 +1,15 @@
-# SANKIWORDSEEKBOT 🤖
+# FOUR WORD BOT 🤖
 
 A fun and addictive **4-letter word guessing game** for Telegram!  
 Inspired by **WordSeekBot**, but built with custom logic, cleaner visuals, and unique features.
 
 ---
 
-## 📸 Demo Screenshot
+## 📸 FOUR WORD BOT
 
-![FOUR WORD BOT ](https://graph.org/file/c0e17724e66a68a2de3a6-5ff173af1d3498d9e7.jpg)
+![FourWordBot Demo](https://graph.org/file/c0e17724e66a68a2de3a6-5ff173af1d3498d9e7.jpg)
+
+> Real gameplay showing color-coded guesses and emoji feedback
 
 > Real gameplay showing color-coded guesses and emoji feedback!
 
