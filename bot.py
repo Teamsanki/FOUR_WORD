@@ -1,257 +1,171 @@
 import random
-import re
-import pymongo
-import datetime
-import asyncio
-import openai
-from collections import Counter
-from pyrogram import Client, filters
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
-from config import (
-    API_ID, API_HASH, BOT_TOKEN, MONGO_URL, DEVELOPER_USERNAME, GROUP_LINK, 
-    WELCOME_GIF, SANKI_LINK, FUNNY_REPLIES, ABUSE_WORDS, GROUP_CHAT_ID
+from telegram import (
+    Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
+)
+from telegram.ext import (
+    ApplicationBuilder, CommandHandler, MessageHandler, filters,
+    ContextTypes, ChatMemberHandler
 )
 
-bot = Client("IndianChatBot", api_id=API_ID, api_hash=API_HASH, bot_token=BOT_TOKEN)
+TOKEN = "7762113593:AAHEhm8iuyf4W0VfnF0MkifOeW2zCOfrMVo"  # Replace with your bot token
 
-# ✅ MongoDB Connection
-mongo = pymongo.MongoClient(MONGO_URL)
-db = mongo["IndianChatBot"]
-group_collection = db["groups"]
+# Bot Owner and Support Info
+OWNER_USERNAME = "@ll_SANKI_II"  # Replace with your @username
+SUPPORT_CHANNEL = "https://t.me/SANKINETWORK"
+WELCOME_IMAGE_URL = "https://graph.org/file/2e37a57d083183ea24761-9cc38246fecc1af393.jpg"  # Replace with image URL
 
-# ✅ Start Command
-@bot.on_message(filters.command("start"))
-async def start(_, message):
-    buttons = InlineKeyboardMarkup([
-        [InlineKeyboardButton("👤 Developer", url=f"https://t.me/{DEVELOPER_USERNAME[1:]}")],
-        [InlineKeyboardButton("💬 Group", url=GROUP_LINK)],
-        [InlineKeyboardButton("📜 Help", callback_data="help")]
-    ])
-    
-    await message.reply_video(WELCOME_GIF, caption="🤖 **Indian Chatting Club Bot**\nMain yahan aapki madad aur security ke liye hoon!", reply_markup=buttons)
+# Word list (400 4-letter words)
+WORDS = [
+    "able", "acid", "aged", "also", "area", "army", "away", "baby", "back", "ball",
+    "band", "bank", "base", "bath", "bear", "beat", "been", "beer", "bell", "belt",
+    "best", "bill", "bird", "blow", "blue", "boat", "body", "bomb", "bond", "bone",
+    "book", "boom", "boot", "born", "boss", "both", "bowl", "bulk", "burn", "bush",
+    "busy", "cafe", "cake", "call", "calm", "came", "camp", "card", "care", "case",
+    "cash", "cast", "cell", "chat", "chip", "city", "club", "coal", "coat", "code",
+    "cold", "come", "cook", "cool", "cope", "copy", "core", "cost", "crew", "crop",
+    "dark", "data", "date", "dawn", "dead", "deal", "dean", "dear", "debt", "deep",
+    "deer", "desk", "dial", "died", "diet", "disc", "disk", "does", "done", "door",
+    "dose", "down", "draw", "drop", "drum", "duck", "dust", "duty", "each", "earn",
+    "ease", "east", "easy", "edge", "else", "even", "ever", "evil", "exit", "face",
+    "fact", "fail", "fair", "fall", "fame", "farm", "fast", "fate", "fear", "feed",
+    "feel", "feet", "fell", "felt", "file", "fill", "film", "find", "fine", "fire",
+    "firm", "fish", "five", "flat", "flow", "fold", "folk", "food", "fool", "foot",
+    "form", "fort", "four", "free", "from", "fuel", "full", "fund", "gain", "game",
+    "gate", "gave", "gear", "gene", "gift", "girl", "give", "glad", "goal", "goes",
+    "gold", "golf", "gone", "good", "gray", "grew", "grey", "grow", "gulf", "hair",
+    "half", "hall", "hand", "hang", "hard", "harm", "hate", "have", "head", "hear",
+    "heat", "held", "hell", "help", "herb", "hero", "hide", "high", "hill", "hire",
+    "hold", "hole", "holy", "home", "hope", "host", "hour", "huge", "hung", "hunt",
+    "hurt", "idea", "inch", "into", "iron", "item", "jack", "jane", "jean", "john",
+    "join", "jump", "jury", "just", "keep", "kent", "kept", "kick", "kill", "kind",
+    "king", "knee", "knew", "know", "lack", "lady", "laid", "lake", "land", "lane",
+    "last", "late", "lead", "left", "less", "life", "lift", "like", "line", "link",
+    "list", "live", "load", "loan", "lock", "logo", "long", "look", "lord", "lose",
+    "loss", "lost", "love", "luck", "made", "mail", "main", "make", "male", "many",
+    "mark", "mass", "matt", "meal", "mean", "meat", "meet", "menu", "mere", "mild",
+    "mile", "milk", "mill", "mind", "mine", "miss", "mode", "mood", "moon", "more",
+    "most", "move", "much", "must", "name", "navy", "near", "neck", "need", "news",
+    "next", "nice", "nick", "nine", "none", "nose", "note", "okay", "once", "only",
+    "onto", "open", "oral", "over", "pace", "pack", "page", "paid", "pain", "pair",
+    "palm", "park", "part", "pass", "past", "path", "peak", "pick", "pipe", "plan",
+    "play", "plot", "plug", "plus", "poll", "pool", "poor", "port", "post", "pull",
+    "pure", "push", "race", "rail", "rain", "rank", "rare", "rate", "read", "real",
+    "rear", "rely", "rent", "rest", "rice", "rich", "ride", "ring", "rise", "risk",
+    "road", "rock", "role", "roof", "room", "root", "rose", "rule", "rush", "safe",
+    "said", "sake", "sale", "salt", "same", "sand", "save", "seat", "seed", "seek",
+    "seem", "seen", "self", "sell", "send", "sent", "sept", "ship", "shop", "shot",
+    "show", "shut", "sick", "side", "sign", "site", "size", "skin", "slip", "slow",
+    "snow", "soft", "soil", "sold", "sole", "some", "song", "soon", "sort", "soul",
+    "spot", "star", "stay", "step", "stop", "such", "suit", "sure", "take", "tale",
+    "talk", "tall", "tank", "tape", "task", "team", "tech", "tell", "tend", "term",
+    "test", "text", "than", "that", "them", "then", "they", "thin", "this", "thus",
+    "till", "time", "tiny", "told", "toll", "tone", "tony", "took", "tool", "tour",
+    "town", "tree", "trip", "true", "tube", "tune", "turn", "type", "unit", "upon",
+    "used", "user", "vary", "vast", "very", "view", "vote", "wait", "wake", "walk",
+    "wall", "want", "ward", "warm", "wash", "wave", "ways", "weak", "wear", "week",
+    "well", "went", "were", "west", "what", "when", "whom", "wide", "wife", "wild",
+    "will", "wind", "wine", "wing", "wins", "wipe", "wise", "wish", "with", "wood",
+    "word", "wore", "work", "yard", "yeah", "year", "your", "zero", "zone"
+]
 
-# ✅ Help Section
-@bot.on_callback_query(filters.regex("help"))
-async def help_section(_, query):
-    buttons = InlineKeyboardMarkup([
-        [InlineKeyboardButton("/start", callback_data="cmd_start")],
-        [InlineKeyboardButton("/connect", callback_data="cmd_connect")],
-        [InlineKeyboardButton("🔙 Back", callback_data="back_to_main")]
-    ])
-    await query.message.edit_text("📜 **Help Section**\nChoose a command to know more:", reply_markup=buttons)
+games = {}
+scores = {}
 
-# ✅ Individual Command Info
-@bot.on_callback_query(filters.regex("^cmd_"))
-async def command_info(_, query):
-    cmd = query.data.split("_")[1]
-    info = {
-        "start": "Ye command bot ko start karti hai.",
-        "connect": "Is command se aap apne group ko bot se connect kar sakte hain."
-    }
-    await query.message.edit_text(f"📌 **/{cmd} Command**\n{info.get(cmd, 'No info available.')}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("🔙 Back", callback_data="help")]]))
-
-# ✅ Auto Ban on Abuse
-@bot.on_message(filters.text & filters.group)
-async def check_abuse(_, message):
-    if any(word in message.text.lower() for word in ABUSE_WORDS):
-        await message.reply(f"🚫 {message.from_user.mention} abuse words use mat karo!", quote=True)
-        await bot.ban_chat_member(message.chat.id, message.from_user.id)
-
-# ✅ Warn User for Bio Link
-@bot.on_chat_member_updated
-async def check_bio(_, update):
-    user = update.new_chat_member
-    if user and user.bio and ("http" in user.bio or "t.me" in user.bio):
-        await bot.send_message(update.chat.id, f"⚠️ {user.user.mention}, apke bio me link hai. Isko hatao warna action liya jayega!")
-
-# ✅ Detect DM Request
-@bot.on_message(filters.text & filters.group)
-async def check_dm_request(_, message):
-    if re.search(r"\b(dm|msg)\b", message.text.lower()):
-        await message.reply(f"⚠️ {message.from_user.mention}, bina permission DM mat karo!", quote=True)
-
-# ✅ Welcome New User
-@bot.on_chat_member_updated
-async def welcome_user(_, update):
-    if update.new_chat_member:
-        buttons = InlineKeyboardMarkup([[InlineKeyboardButton("SANKI", url=SANKI_LINK)]])
-        await bot.send_animation(update.chat.id, WELCOME_GIF, caption=f"👋 Welcome {update.new_chat_member.user.mention}!\nHope you enjoy our chat!", reply_markup=buttons)
-
-# ✅ MongoDB Collection for Connected Groups
-connected_groups = db["connected_groups"]
-
-# ✅ /connect Command (Sirf "https://t.me/" Format Wale Links)
-@bot.on_message(filters.command("connect") & filters.private)
-async def connect_group(_, message):
-    await message.reply("🔗 **Apne group ka link bhejo (Sirf 'https://t.me/' format me).**")
-
-    @bot.on_message(filters.text & filters.private)
-    async def get_group_link(_, link_msg):
-        group_link = link_msg.text.strip()
-
-        # ✅ Validate Link (Sirf "https://t.me/" Format Allow)
-        if not group_link.startswith("https://t.me/"):
-            return await link_msg.reply("❌ **Invalid Link!** Sirf 'https://t.me/' format wale links bhejo.")
-
-        await link_msg.reply("✍️ **Ab ek message likho jo bot admins ko bhejega.**")
-
-        @bot.on_message(filters.text & filters.private)
-        async def get_admin_message(_, msg):
-            # ✅ Save in Database
-            connected_groups.insert_one({
-                "group_link": group_link,
-                "owner_msg": msg.text
-            })
-
-            await msg.reply("✅ **Group connect ho gaya! Ab bot admins ko ye message bhejega.**")
-
-            # ✅ Send Notice to Admins in Group
-            group_chat_id = await get_group_id(group_link)  # ✅ Get Group ID from Link
-            if not group_chat_id:
-                return await msg.reply("❌ **Bot ko group me add karo phir connect karo!**")
-
-            # ✅ Fetch All Admins
-            admins = []
-            async for member in bot.get_chat_members(group_chat_id, filter="administrators"):
-                if not member.user.is_bot:
-                    admins.append(member.user.mention)
-
-            admin_tags = " ".join(admins) if admins else "No admins found"
-
-            notice_msg = f"📢 **Group Connected!**\n\n🔗 **Group:** {group_link}\n✉ **Message:** {msg.text}\n👮‍♂ **Admins:** {admin_tags}"
-            sent_msg = await bot.send_message(group_chat_id, notice_msg)
-            await sent_msg.pin()  # ✅ Pin the message
-
-# ✅ Function: Get Group ID from Invite Link
-async def get_group_id(group_link):
-    try:
-        chat = await bot.get_chat(group_link)
-        return chat.id
-    except:
-        return None
-
-# ✅ Tag All Users
-@bot.on_message(filters.command("utag") & filters.group)
-async def tag_all_users(_, message: Message):
-    members = [member.user for member in bot.get_chat_members(message.chat.id) if not member.user.is_bot]
-    if not members:
-        return await message.reply("❌ Group me koi member nahi hai!")
-    tag_text = "👥 **Tagging All Users:**\n" + " ".join([f"@{user.username}" if user.username else user.mention for user in members])
-    await message.reply(tag_text)
-
-# ✅ Tag All Admins
-@bot.on_message(filters.command("atag") & filters.group)
-async def tag_admins(_, message: Message):
-    admins = [member.user for member in bot.get_chat_members(message.chat.id, filter="administrators") if not member.user.is_bot]
-    if not admins:
-        return await message.reply("❌ Group me koi admin nahi hai!")
-    tag_text = "👮‍♂️ **Tagging All Admins:**\n" + " ".join([f"@{user.username}" if user.username else user.mention for user in admins])
-    await message.reply(tag_text)
-
-# ✅ Auto Good Morning/Night Messages
-async def send_daily_message(chat_id, message_type):
-    quotes = {
-        "morning": "🌞 **Good Morning!**\nNaya din naye mauke lekar aata hai!",
-        "night": "🌙 **Good Night!**\nAaj ka din jitna bhi tough tha, kal naya din naye umeed lekar aayega!"
-    }
-    await bot.send_message(chat_id, quotes[message_type])
-
-async def schedule_daily_messages():
-    while True:
-        now = datetime.datetime.now().strftime("%H:%M")
-        if now == "07:00":
-            await send_daily_message(GROUP_CHAT_ID, "morning")
-        elif now == "22:00":
-            await send_daily_message(GROUP_CHAT_ID, "night")
-        await asyncio.sleep(60)
-
-# ✅ Track Best Message
-best_message = {"user": None, "message": "", "likes": 0, "message_id": None}
-
-@bot.on_message(filters.text & filters.group)
-async def track_best_message(_, message):
-    if message.reply_to_message and ("👍" in message.text or "❤️" in message.text):
-        if message.reply_to_message.from_user.id == message.from_user.id:
-            return
-        msg_id = message.reply_to_message.message_id
-        if best_message["message_id"] == msg_id:
-            best_message["likes"] += 1
-        else:
-            best_message.update({"user": message.reply_to_message.from_user.mention, "message": message.reply_to_message.text, "likes": 1, "message_id": msg_id})
-
-@bot.on_message(filters.command("bestmsg") & filters.group)
-async def best_msg_command(_, message):
-    if best_message["likes"] >= 5:
-        await message.reply(f"🏆 **Best Message of the Day!**\n👤 {best_message['user']}\n📝 {best_message['message']}\n❤️ {best_message['likes']} Likes!")
-    else:
-        await message.reply("❌ Koi best message nahi mila ya 5 likes nahi mile!")
-
-# ✅ MongoDB Collection for Auto Replies
-funny_replies_collection = db["funny_replies"]
-
-# ✅ Auto Reply (Random Funny Reply from DB)
-@bot.on_message(filters.text & filters.group)
-async def auto_reply(_, message):
-    if message.reply_to_message or message.entities:
-        return  # ✅ Agar reply ya koi link hai to ignore karo
-
-    # ✅ MongoDB Collection for Auto Replies
-funny_replies_collection = db["FUNNY_REPLIES"]
-
-# ✅ Auto Reply (Random Funny Reply from Config)
-@bot.on_message(filters.text & filters.group)
-async def auto_reply(_, message):
-    if message.reply_to_message or message.entities:
-        return  # ✅ Agar reply ya koi link hai to ignore karo
-    
-    if FUNNY_REPLIES:  # ✅ Agar FUNNY_REPLIES list empty nahi hai
-        reply_text = random.choice(FUNNY_REPLIES)  # ✅ Random Reply Choose Karo
-        await message.reply(reply_text)
-
-# ✅ OpenAI API Key (Yahan apni API key daalo)
-OPENAI_API_KEY = "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"
-
-# ✅ Function: GPT Se 18+ Content Detect Karna
-async def is_adult_content(text):
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "system", "content": "Detect if the given text contains NSFW or adult content."},
-                  {"role": "user", "content": text}],
-        api_key=OPENAI_API_KEY
+# Welcome message
+async def send_welcome_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    keyboard = [
+        [
+            InlineKeyboardButton("👤 Contact Owner", url=f"https://t.me/{OWNER_USERNAME}"),
+            InlineKeyboardButton("💬 Support Channel", url=SUPPORT_CHANNEL)
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    caption = (
+        "**Welcome to WordSeekBot!**\n\n"
+        "Guess 4-letter words with friends in groups.\n"
+        "Start a game with /new and see scores with /leaderboard.\n"
+        "Bot gives color feedback + 👻 when you guess right!"
     )
-    result = response["choices"][0]["message"]["content"]
-    return "yes" in result.lower()
 
-# ✅ 18+ Sticker/GIF Auto Ban
-@bot.on_message((filters.sticker | filters.animation) & filters.group)
-async def check_adult_content(_, message):
-    chat_id = message.chat.id
-    user_id = message.from_user.id
-    chat_member = await bot.get_chat_member(chat_id, user_id)
-    is_group_owner = chat_member.status == "owner"
+    await context.bot.send_photo(
+        chat_id=update.effective_chat.id,
+        photo=WELCOME_IMAGE_URL,
+        caption=caption,
+        parse_mode="Markdown",
+        reply_markup=reply_markup
+    )
 
-    # ✅ Bot Owner ID (Config me define karo)
-    BOT_OWNER_ID = 123456789  # 👈 Apna Telegram ID likho
+# /start handler
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await send_welcome_message(update, context)
 
-    is_adult = False
-    
-    # ✅ Telegram AI Filter Se 18+ Content Detect Karna
-    if message.sticker and message.sticker.is_animated:
-        is_adult = message.sticker.emoji in ["🍆", "🍑", "🔞", "😈"]  
-    elif message.animation:
-        if message.caption:
-            is_adult = await is_adult_content(message.caption)  # ✅ GPT Se Check Karega
-    else:
-        is_adult = False
+# when bot added to group
+async def added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.my_chat_member.new_chat_member.status == "member":
+        await send_welcome_message(update, context)
 
-    if is_adult:
-        await message.delete()  # ✅ Message Delete Karega
-        
-        if user_id == BOT_OWNER_ID or is_group_owner:
-            await message.reply(f"⚠️ **Sir, aap owner hoke 18+ content mat bhejiye!**", quote=True)
+# /new command
+async def new_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    word = random.choice(WORDS)
+    games[chat_id] = word
+    await update.message.reply_text(f"New game started! Guess the 4-letter word.")
+
+# /leaderboard command
+async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    if chat_id not in scores:
+        await update.message.reply_text("No scores yet!")
+        return
+
+    sorted_scores = sorted(scores[chat_id].items(), key=lambda x: x[1], reverse=True)
+    msg = "**Leaderboard:**\n"
+    for user, score in sorted_scores:
+        msg += f"{user}: {score} pts\n"
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+# Handle guesses
+async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    if chat_id not in games:
+        return
+
+    guess = update.message.text.lower()
+    if len(guess) != 4 or not guess.isalpha():
+        return
+
+    correct_word = games[chat_id]
+    colored = ""
+    for i in range(4):
+        if guess[i] == correct_word[i]:
+            colored += "🟩"
+        elif guess[i] in correct_word:
+            colored += "🟨"
         else:
-            await bot.ban_chat_member(chat_id, user_id)
-            await bot.send_message(chat_id, f"❌ {message.from_user.mention} ne 18+ sticker/GIF bheja, isliye ban kar diya gaya!")
+            colored += "🟥"
 
-# ✅ Run Bot
-bot.run()
+    await update.message.reply_text(colored)
+
+    if guess == correct_word:
+        await context.bot.send_message(chat_id, f"{update.effective_user.first_name} guessed it! {correct_word}")
+        await update.message.reply_text("👻")
+        user = update.effective_user.first_name
+        if chat_id not in scores:
+            scores[chat_id] = {}
+        scores[chat_id][user] = scores[chat_id].get(user, 0) + 1
+        del games[chat_id]
+
+# Main function
+def main():
+    app = ApplicationBuilder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(ChatMemberHandler(added_to_group, chat_member_types=["my_chat_member"]))
+    app.add_handler(CommandHandler("new", new_game))
+    app.add_handler(CommandHandler("leaderboard", leaderboard))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
+
+    print("WordSeekBot is running...")
+    app.run_polling()
+
+if __name__ == "__main__":
+    main()
