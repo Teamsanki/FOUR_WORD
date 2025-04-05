@@ -46,7 +46,7 @@ WORDS = ['lamp', 'desk', 'rain', 'gold', 'fire', 'blue', 'grin', 'mint', 'word',
          'rum', 'cola', 'milk', 'cake', 'pie', 'meal', 'snack', 'dish', 'fork', 'spoon', 'bowl', 'mug', 'oven',
          'sink', 'soap', 'toys', 'play', 'spin', 'roll', 'skip', 'joke', 'jest', 'code', 'data', 'file', 'byte',
          'disk', 'link', 'node', 'ping', 'hash', 'site', 'blog', 'wiki', 'page', 'user', 'pass', 'form', 'mail',
-         'news', 'edit', 'view', 'read', 'load', 'save']
+         'news', 'edit', 'view', 'read', 'load', 'save', 'slap', 'kick', 'hell', 'grow', 'time', 'fate', 'Hate', 'chat', 'info', 'hack', 'lock', 'beep', 'deep', 'jeep', 'fills', 'repo', 'some', 'form', 'from']
 
 # --- Format Feedback ---
 def format_feedback(guess: str, correct_word: str) -> str:
