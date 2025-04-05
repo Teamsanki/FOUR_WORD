@@ -27,26 +27,107 @@ games_col = db["games"]
 scores_col = db["scores"]
 
 # --- Word List ---
-WORDS = ['lamp', 'desk', 'rain', 'gold', 'fire', 'blue', 'grin', 'mint', 'word', 'cold', 'heat', 'snow', 'wind',
-         'tree', 'rock', 'sand', 'lake', 'hill', 'dark', 'mild', 'bold', 'cool', 'jump', 'grab', 'walk', 'talk',
-         'hear', 'look', 'fast', 'slow', 'high', 'low', 'east', 'west', 'book', 'note', 'film', 'song', 'jazz',
-         'punk', 'folk', 'rope', 'kite', 'ball', 'bark', 'meow', 'lion', 'bear', 'wolf', 'deer', 'frog', 'fish',
-         'crab', 'seal', 'clam', 'gale', 'hail', 'mist', 'dawn', 'dusk', 'moon', 'star', 'mars', 'opal', 'ruby',
-         'pearl', 'coal', 'iron', 'lead', 'zinc', 'salt', 'soda', 'lime', 'navy', 'army', 'tank', 'jeep', 'bike',
-         'road', 'path', 'ride', 'zoom', 'gate', 'door', 'bell', 'farm', 'barn', 'shed', 'tool', 'gear', 'saw',
-         'nail', 'drip', 'drop', 'leak', 'pipe', 'flow', 'wave', 'surf', 'tide', 'reef', 'ship', 'sail', 'crew',
-         'deck', 'mast', 'port', 'dock', 'mile', 'yard', 'inch', 'foot', 'pace', 'step', 'clap', 'snap', 'ring',
-         'tone', 'beep', 'buzz', 'whip', 'slam', 'kick', 'poke', 'stab', 'burn', 'melt', 'boil', 'bake', 'fry',
-         'cook', 'brew', 'pour', 'fill', 'tilt', 'flip', 'turn', 'push', 'pull', 'drag', 'lift', 'send', 'text',
-         'chat', 'post', 'like', 'vote', 'rate', 'rank', 'name', 'list', 'pick', 'sort', 'plan', 'plot', 'idea',
-         'fact', 'quiz', 'game', 'luck', 'goal', 'rule', 'loss', 'gain', 'risk', 'test', 'pass', 'fail', 'hope',
-         'wish', 'need', 'love', 'hate', 'fear', 'calm', 'rage', 'smile', 'grim', 'wink', 'yawn', 'moan', 'sigh',
-         'gulp', 'snore', 'purr', 'chirp', 'hoot', 'roar', 'grow', 'bloom', 'leaf', 'stem', 'root', 'seed', 'soil',
-         'crop', 'corn', 'bean', 'peas', 'rice', 'wheat', 'flax', 'herb', 'bush', 'vine', 'wine', 'beer', 'shot',
-         'rum', 'cola', 'milk', 'cake', 'pie', 'meal', 'snack', 'dish', 'fork', 'spoon', 'bowl', 'mug', 'oven',
-         'sink', 'soap', 'toys', 'play', 'spin', 'roll', 'skip', 'joke', 'jest', 'code', 'data', 'file', 'byte',
-         'disk', 'link', 'node', 'ping', 'hash', 'site', 'blog', 'wiki', 'page', 'user', 'pass', 'form', 'mail',
-         'news', 'edit', 'view', 'read', 'load', 'save', 'slap', 'kick', 'hell', 'grow', 'time', 'fate', 'Hate', 'chat', 'info', 'hack', 'lock', 'beep', 'deep', 'jeep', 'fills', 'repo', 'some', 'form', 'from']
+WORDS = [
+    # A
+    'able', 'acid', 'aged', 'also', 'area', 'army', 'atom', 'aunt', 'away', 'axis',
+    # B
+    'baby', 'back', 'bake', 'ball', 'band', 'bank', 'barn', 'base', 'bath', 'bear',
+    'beat', 'been', 'bell', 'belt', 'bend', 'best', 'bike', 'bill', 'bird', 'bite',
+    'blue', 'boat', 'body', 'bomb', 'bond', 'bone', 'book', 'boom', 'boot', 'bore',
+    'born', 'boss', 'both', 'bowl', 'brag', 'bray', 'bred', 'brew', 'brim', 'buck',
+    'buff', 'bulk', 'bull', 'bump', 'burn', 'bush', 'busy', 'buzz', 'byte',
+    # C
+    'cage', 'cake', 'call', 'calm', 'camp', 'card', 'care', 'cart', 'case', 'cash',
+    'cast', 'cave', 'cell', 'chat', 'chip', 'city', 'clay', 'club', 'coal', 'coat',
+    'cold', 'come', 'cook', 'cool', 'cope', 'cord', 'core', 'cost', 'crew', 'crop',
+    'curl', 'cute',
+    # D
+    'dark', 'data', 'date', 'dawn', 'deal', 'debt', 'deep', 'deer', 'desk', 'dial',
+    'dice', 'died', 'diet', 'dime', 'dine', 'dish', 'disk', 'dive', 'dock', 'does',
+    'doge', 'dome', 'done', 'doom', 'door', 'dose', 'down', 'drag', 'draw', 'drop',
+    'drum', 'dual', 'duck', 'duke', 'dull', 'dust', 'duty',
+    # E
+    'each', 'earn', 'ease', 'east', 'easy', 'edge', 'edit', 'else', 'envy', 'epic',
+    'even', 'ever', 'evil', 'exam', 'exit', 'eyes',
+    # F
+    'face', 'fact', 'fade', 'fail', 'fair', 'fake', 'fall', 'fame', 'farm', 'fast',
+    'fate', 'fear', 'feed', 'feel', 'feet', 'fell', 'felt', 'file', 'fill', 'film',
+    'find', 'fine', 'fire', 'firm', 'fish', 'fist', 'five', 'flag', 'flat', 'flip',
+    'flow', 'fold', 'folk', 'food', 'foot', 'form', 'fort', 'four', 'free', 'frog',
+    'fuel', 'full', 'fund', 'fuse',
+    # G
+    'gain', 'game', 'gang', 'gate', 'gave', 'gear', 'gene', 'gift', 'girl', 'give',
+    'glad', 'goal', 'goat', 'gold', 'golf', 'gone', 'good', 'grab', 'gray', 'grew',
+    'grid', 'grim', 'grip', 'grow', 'gulf', 'guts',
+    # H
+    'hair', 'half', 'hall', 'hand', 'hang', 'hard', 'harm', 'hate', 'have', 'hawk',
+    'head', 'heal', 'heap', 'hear', 'heat', 'held', 'hell', 'help', 'herb', 'hero',
+    'hide', 'high', 'hill', 'hire', 'hold', 'hole', 'holy', 'home', 'hope', 'horn',
+    'host', 'hour', 'huge', 'hung', 'hunt', 'hurt',
+    # I
+    'idea', 'idle', 'inch', 'into', 'iron', 'item',
+    # J
+    'jack', 'jade', 'jail', 'jazz', 'jeep', 'jest', 'join', 'joke', 'jump', 'jury',
+    # K
+    'keep', 'kept', 'kick', 'kill', 'kind', 'king', 'kiss', 'kite', 'knee', 'knew',
+    'knit', 'know',
+    # L
+    'lack', 'lady', 'lake', 'lamp', 'land', 'lane', 'last', 'late', 'lava', 'lazy',
+    'lead', 'leaf', 'left', 'lend', 'less', 'life', 'lift', 'like', 'limb', 'line',
+    'link', 'lion', 'list', 'live', 'load', 'loan', 'lock', 'logo', 'long', 'look',
+    'loop', 'lord', 'lose', 'loss', 'lost', 'love', 'luck', 'lung',
+    # M
+    'made', 'mail', 'main', 'make', 'male', 'mall', 'many', 'mark', 'mask', 'mass',
+    'mate', 'meal', 'mean', 'meat', 'meet', 'melt', 'menu', 'mere', 'mice', 'mild',
+    'mile', 'milk', 'mill', 'mind', 'mine', 'mint', 'miss', 'mist', 'mode', 'mood',
+    'moon', 'more', 'most', 'move', 'much', 'must', 'myth',
+    # N
+    'name', 'navy', 'near', 'neck', 'need', 'nest', 'news', 'next', 'nice', 'nick',
+    'nine', 'node', 'none', 'noon', 'nose', 'note', 'noun', 'nuts',
+    # O
+    'oath', 'obey', 'omit', 'once', 'only', 'onto', 'open', 'oral', 'ours', 'oval',
+    'oven', 'over', 'owed', 'own',
+    # P
+    'pack', 'page', 'paid', 'pain', 'pair', 'palm', 'park', 'part', 'pass', 'past',
+    'path', 'peak', 'pear', 'peel', 'peer', 'peny', 'pick', 'pile', 'pill', 'pine',
+    'pink', 'pipe', 'plan', 'play', 'plot', 'plug', 'plus', 'poem', 'pole', 'poll',
+    'pond', 'pool', 'poor', 'port', 'post', 'pull', 'pure', 'push',
+    # Q
+    'quad', 'quiz', 'quit', 'quip',
+    # R
+    'race', 'rack', 'rage', 'raid', 'rail', 'rain', 'rank', 'rate', 'rays', 'read',
+    'real', 'rear', 'redo', 'reed', 'reef', 'rest', 'rice', 'rich', 'ride', 'ring',
+    'riot', 'rise', 'risk', 'road', 'rock', 'role', 'roof', 'room', 'root', 'rope',
+    'rose', 'rule', 'rush', 'rust',
+    # S
+    'safe', 'said', 'sail', 'salt', 'same', 'sand', 'save', 'scan', 'scar', 'seal',
+    'seat', 'seed', 'seek', 'seem', 'seen', 'self', 'sell', 'send', 'ship', 'shop',
+    'shot', 'show', 'shut', 'side', 'sign', 'silk', 'sink', 'site', 'size', 'slip',
+    'slow', 'snap', 'snow', 'soap', 'soft', 'soil', 'sold', 'sole', 'some', 'song',
+    'soon', 'sort', 'soul', 'spot', 'star', 'stay', 'step', 'stop', 'such', 'suit',
+    'sure', 'swim', 'sync',
+    # T
+    'tail', 'take', 'tale', 'talk', 'tall', 'tank', 'tape', 'task', 'team', 'tear',
+    'tech', 'tell', 'tend', 'tent', 'term', 'test', 'text', 'than', 'that', 'them',
+    'then', 'they', 'thin', 'this', 'thus', 'time', 'tire', 'told', 'toll', 'tone',
+    'tool', 'tops', 'torn', 'tour', 'town', 'trap', 'tree', 'trip', 'true', 'tube',
+    'tune', 'turn', 'twin', 'type',
+    # U
+    'ugly', 'unit', 'urge', 'used', 'user', 'upon',
+    # V
+    'vain', 'vast', 'veil', 'verb', 'very', 'vest', 'view', 'vine', 'visa', 'vote',
+    # W
+    'wage', 'wait', 'wake', 'walk', 'wall', 'want', 'ward', 'warm', 'warn', 'wash',
+    'wave', 'weak', 'wear', 'weed', 'week', 'well', 'west', 'what', 'when', 'whip',
+    'wide', 'wife', 'wild', 'will', 'wind', 'wine', 'wing', 'wink', 'wipe', 'wire',
+    'wise', 'wish', 'wolf', 'wood', 'word', 'worn', 'wrap',
+    # X
+    'xray',
+    # Y
+    'yard', 'yarn', 'yawn', 'yeah', 'year', 'yell', 'your', 'yoga',
+    # Z
+    'zero', 'zinc', 'zone', 'zoom'
+]
 
 # --- Format Feedback ---
 def format_feedback(guess: str, correct_word: str) -> str:
@@ -109,19 +190,18 @@ async def stop_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # --- Handle guesses ---
 async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    game = games_col.find_one({"chat_id": chat_id})
+    if not game:
+        return  # Game not running, ignore all messages
+
     user = update.effective_user
     text = update.message.text.lower()
 
-    # Ignore all non-4-letter words (so bot won't reply to random chats)
     if not text.isalpha() or len(text) != 4:
-        return  # silently ignore
+        return
 
     if text not in WORDS:
         await update.message.reply_text("This word is not in my dictionary.")
-        return
-
-    game = games_col.find_one({"chat_id": chat_id})
-    if not game:
         return
 
     correct_word = game["word"]
