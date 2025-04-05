@@ -154,38 +154,43 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=chat_id, text=f"🎉 Congratulations *{user.first_name}*! 👻", parse_mode="Markdown")
         games_col.delete_one({"chat_id": chat_id})
 
+# --- /leaderboard command handler ---
 async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-
-    # Find latest game message to reply to
-    last_game = games_col.find_one({"chat_id": chat_id}, sort=[("started_at", -1)])
-    reply_to = last_game.get("message_id") if last_game else None
-
-    # Get top 10 scores for this chat (Overall)
-    results = list(scores_col.find({"chat_id": chat_id}).sort("score", -1).limit(10))
-    title = "🏆 Overall Leaderboard"
-
-    if not results:
-        msg = "No scores found."
-    else:
-        msg = f"__{title}__\n"
-        for i, row in enumerate(results, 1):
-            msg += f"> {i}. *{row['name']}* — {row['score']} pts\n"
-
-    keyboard = InlineKeyboardMarkup([
+    keyboard = [
         [
-            InlineKeyboardButton("Today", callback_data=f"lb_today_{chat_id}"),
-            InlineKeyboardButton("Overall", callback_data=f"lb_overall_{chat_id}"),
-            InlineKeyboardButton("Global", callback_data="lb_global")
+            InlineKeyboardButton("📅 Today", callback_data=f"lb_today_{update.effective_chat.id}"),
+            InlineKeyboardButton("🏆 Overall", callback_data=f"lb_overall_{update.effective_chat.id}")
+        ],
+        [
+            InlineKeyboardButton("🌍 Global", callback_data="lb_global")
         ]
-    ])
+    ]
 
-    await context.bot.send_message(
-        chat_id=chat_id,
-        text=msg,
-        reply_to_message_id=reply_to,  # This ensures quote style
-        reply_markup=keyboard,
-        parse_mode="Markdown"
+    # Inline button message (quote style)
+    await update.message.reply_text(
+        "🏆 Leaderboard:",
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        reply_to_message_id=update.message.message_id
+    )
+
+    # Also show default leaderboard (Overall) in quote style
+    chat_id = update.effective_chat.id
+    results = list(scores_col.find({"chat_id": chat_id}).sort("score", -1).limit(10))
+    if not results:
+        await update.message.reply_text(
+            "No scores found.",
+            reply_to_message_id=update.message.message_id
+        )
+        return
+
+    msg = "__🏆 Overall Leaderboard__\n"
+    for i, row in enumerate(results, 1):
+        msg += f"> {i}. *{row['name']}* — {row['score']} pts\n"
+
+    await update.message.reply_text(
+        msg,
+        parse_mode="Markdown",
+        reply_to_message_id=update.message.message_id
     )
 
 # --- Main ---
