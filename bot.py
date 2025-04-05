@@ -154,44 +154,43 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=chat_id, text=f"🎉 Congratulations *{user.first_name}*! 👻", parse_mode="Markdown")
         games_col.delete_one({"chat_id": chat_id})
 
-# --- /leaderboard command handler ---
-async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [
-            InlineKeyboardButton("📅 Today", callback_data=f"lb_today_{update.effective_chat.id}"),
-            InlineKeyboardButton("🏆 Overall", callback_data=f"lb_overall_{update.effective_chat.id}")
-        ],
-        [
-            InlineKeyboardButton("🌍 Global", callback_data="lb_global")
+# --- Leaderboard callback ---
+async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+
+    if data.startswith("lb_today_"):
+        chat_id = int(data.split("_")[2])
+        since = datetime.utcnow() - timedelta(days=1)
+        pipeline = [
+            {"$match": {"chat_id": chat_id, "updated": {"$gte": since}}},
+            {"$group": {"_id": "$user_id", "score": {"$max": "$score"}, "name": {"$first": "$name"}}},
+            {"$sort": {"score": -1}}, {"$limit": 10}
         ]
-    ]
+        results = list(scores_col.aggregate(pipeline))
+        title = "📅 Today's Leaderboard"
 
-    # Inline button message (quote style)
-    await update.message.reply_text(
-        "🏆 Leaderboard:",
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        reply_to_message_id=update.message.message_id
-    )
+    elif data.startswith("lb_overall_"):
+        chat_id = int(data.split("_")[2])
+        results = list(scores_col.find({"chat_id": chat_id}).sort("score", -1).limit(10))
+        title = "🏆 Overall Leaderboard"
 
-    # Also show default leaderboard (Overall) in quote style
-    chat_id = update.effective_chat.id
-    results = list(scores_col.find({"chat_id": chat_id}).sort("score", -1).limit(10))
-    if not results:
-        await update.message.reply_text(
-            "No scores found.",
-            reply_to_message_id=update.message.message_id
-        )
+    elif data == "lb_global":
+        results = list(scores_col.find({"chat_id": "global"}).sort("score", -1).limit(10))
+        title = "🌍 Global Leaderboard"
+    else:
         return
 
-    msg = "__🏆 Overall Leaderboard__\n"
+    if not results:
+        await query.edit_message_text("No scores found.")
+        return
+
+    msg = f"__{title}__\n"
     for i, row in enumerate(results, 1):
         msg += f"> {i}. *{row['name']}* — {row['score']} pts\n"
 
-    await update.message.reply_text(
-        msg,
-        parse_mode="Markdown",
-        reply_to_message_id=update.message.message_id
-    )
+    await query.edit_message_text(msg, parse_mode="Markdown")
 
 # --- Main ---
 if __name__ == "__main__":
