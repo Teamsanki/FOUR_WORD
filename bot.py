@@ -16,13 +16,11 @@ from telegram.ext import (
 )
 
 # --- Bot Config ---
-TOKEN = "7762113593:AAHEhm8iuyf4W0VfnF0MkifOeW2zCOfrMVo"  # Replace with your bot token
-OWNER_USERNAME = "@ll_SANKI_II"  # Replace with your Telegram username
-SUPPORT_CHANNEL = "https://t.me/SANKINETWORK"
-WELCOME_IMAGE_URL = "https://graph.org/file/2e37a57d083183ea24761-9cc38246fecc1af393.jpg"
+TOKEN = "7762113593:AAHEhm8iuyf4W0VfnF0MkifOeW2zCOfrMVo"  # <-- Replace this with your bot token
+MONGO_URL = "mongodb+srv://TSANKI:TSANKI@cluster0.u2eg9e1.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"  # <-- Replace this with your MongoDB connection string
+WELCOME_IMAGE_URL = "https://graph.org/file/2e37a57d083183ea24761-9cc38246fecc1af393.jpg"  # <-- Replace with your welcome image
 
 # --- MongoDB Setup ---
-MONGO_URL = "mongodb+srv://TSANKI:TSANKI@cluster0.u2eg9e1.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 client = MongoClient(MONGO_URL)
 db = client["wordseekbot"]
 games_col = db["games"]
@@ -71,16 +69,17 @@ def build_summary(guesses: list[str], correct_word: str, hint: str) -> str:
     summary += f"\n_\"{hint}\"_\n"
     return summary
 
-# --- /start or member added ---
+# --- /start welcome ---
 async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     keyboard = [[InlineKeyboardButton("Start Game", callback_data="/new")]]
-    reply_markup = InlineKeyboardMarkup(keyboard)
+    markup = InlineKeyboardMarkup(keyboard)
     await context.bot.send_photo(
         chat_id=chat.id,
         photo=WELCOME_IMAGE_URL,
-        caption="Welcome to WordSeekBot!\nGuess 4-letter words with color feedback.\nType /new to begin.",
-        reply_markup=reply_markup
+        caption="Welcome to *WordSeekBot*! Guess 4-letter words with color feedback.\nUse /new to begin.",
+        parse_mode="Markdown",
+        reply_markup=markup
     )
 
 # --- /new game ---
@@ -138,17 +137,14 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if text == correct_word:
         now = datetime.utcnow()
 
-        user_score = scores_col.find_one({"chat_id": chat_id, "user_id": user.id}) or {}
-        new_score = min(12, user_score.get("score", 0) + 1)
-
         scores_col.update_one(
             {"chat_id": chat_id, "user_id": user.id},
-            {"$set": {"name": user.first_name, "updated": now, "score": new_score}},
+            {"$set": {"name": user.first_name, "updated": now}, "$inc": {"score": 1}},
             upsert=True
         )
         scores_col.update_one(
             {"chat_id": "global", "user_id": user.id},
-            {"$set": {"name": user.first_name, "updated": now, "score": new_score}},
+            {"$set": {"name": user.first_name, "updated": now}, "$inc": {"score": 1}},
             upsert=True
         )
 
@@ -167,8 +163,8 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
             InlineKeyboardButton("🌍 Global", callback_data="lb_global")
         ]
     ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Choose a leaderboard:", reply_markup=reply_markup)
+    markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Choose a leaderboard:", reply_markup=markup)
 
 # --- Leaderboard callback ---
 async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -182,8 +178,7 @@ async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         pipeline = [
             {"$match": {"chat_id": chat_id, "updated": {"$gte": since}}},
             {"$group": {"_id": "$user_id", "score": {"$max": "$score"}, "name": {"$first": "$name"}}},
-            {"$sort": {"score": -1}},
-            {"$limit": 10}
+            {"$sort": {"score": -1}}, {"$limit": 10}
         ]
         results = list(scores_col.aggregate(pipeline))
         title = "📅 Today's Leaderboard"
@@ -205,9 +200,8 @@ async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     msg = f"__{title}__\n"
-    for idx, row in enumerate(results, 1):
-        msg += f"> {idx}. *{row['name']}* — {row['score']} pts\n"
-
+    for i, row in enumerate(results, 1):
+        msg += f"> {i}. *{row['name']}* — {row['score']} pts\n"
     await query.edit_message_text(msg, parse_mode="Markdown")
 
 # --- Main ---
