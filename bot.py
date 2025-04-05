@@ -140,12 +140,12 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         scores_col.update_one(
             {"chat_id": chat_id, "user_id": user.id},
-            {"$set": {"name": user.first_name, "updated": now}, "$inc": {"score": 1}},
+            {"$set": {"name": user.first_name, "updated": now}, "$inc": {"score": 12}},
             upsert=True
         )
         scores_col.update_one(
             {"chat_id": "global", "user_id": user.id},
-            {"$set": {"name": user.first_name, "updated": now}, "$inc": {"score": 1}},
+            {"$set": {"name": user.first_name, "updated": now}, "$inc": {"score": 12}},
             upsert=True
         )
 
