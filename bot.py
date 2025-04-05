@@ -154,6 +154,19 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id=chat_id, text=f"🎉 Congratulations *{user.first_name}*! 👻", parse_mode="Markdown")
         games_col.delete_one({"chat_id": chat_id})
 
+# --- /leaderboard ---
+async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    keyboard = [
+        [
+            InlineKeyboardButton("📅 Today", callback_data=f"lb_today_{chat_id}"),
+            InlineKeyboardButton("🏆 Overall", callback_data=f"lb_overall_{chat_id}"),
+            InlineKeyboardButton("🌍 Global", callback_data="lb_global")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Choose a leaderboard:", reply_markup=reply_markup)
+
 # --- Leaderboard callback ---
 async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -166,7 +179,8 @@ async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         pipeline = [
             {"$match": {"chat_id": chat_id, "updated": {"$gte": since}}},
             {"$group": {"_id": "$user_id", "score": {"$max": "$score"}, "name": {"$first": "$name"}}},
-            {"$sort": {"score": -1}}, {"$limit": 10}
+            {"$sort": {"score": -1}},
+            {"$limit": 10}
         ]
         results = list(scores_col.aggregate(pipeline))
         title = "📅 Today's Leaderboard"
@@ -188,8 +202,9 @@ async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         return
 
     msg = f"__{title}__\n"
-    for i, row in enumerate(results, 1):
-        msg += f"> {i}. *{row['name']}* — {row['score']} pts\n"
+    for idx, row in enumerate(results, 1):
+        msg += f"> {idx}. *{row['name']}* — {row['score']} pts\n"
+
     await query.edit_message_text(msg, parse_mode="Markdown")
 
 # --- Main ---
