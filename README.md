@@ -5,7 +5,7 @@ Inspired by **WordSeekBot**, but built with custom logic, cleaner visuals, and u
 
 ---
 
-![FourWordBot Gameplay](https://graph.org/file/abc123456789.jpg)
+![FourWordBot Gameplay](https://firebasestorage.googleapis.com/v0/b/social-bite-skofficial.appspot.com/o/SANKI%2FCute%20Yellow%20Words%20Educational%20Game%20Logo%20-%201.png?alt=media&token=a50e0d0a-bda8-411b-ba3f-6dea82a8b385)
 
 > Real gameplay showing color-coded guesses and emoji feedback!
 
