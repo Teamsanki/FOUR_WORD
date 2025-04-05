@@ -203,6 +203,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("leaderboard", leaderboard))
     app.add_handler(CallbackQueryHandler(leaderboard_callback, pattern=r"^lb_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
-
+    app.add_handler(CallbackQueryHandler(leaderboard_callback, pattern=r"^lb_"))
+    
     print("Bot is running...")
     app.run_polling()
