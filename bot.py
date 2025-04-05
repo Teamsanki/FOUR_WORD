@@ -1,171 +1,223 @@
 import random
+from datetime import datetime, timedelta
+from pymongo import MongoClient
 from telegram import (
-    Update, InlineKeyboardButton, InlineKeyboardMarkup, InputMediaPhoto
+    Update,
+    InlineKeyboardButton,
+    InlineKeyboardMarkup,
+    InputMediaPhoto
 )
 from telegram.ext import (
-    ApplicationBuilder, CommandHandler, MessageHandler, filters,
-    ContextTypes, ChatMemberHandler
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    CallbackQueryHandler,
+    ChatMemberHandler,
+    ContextTypes,
+    filters
 )
 
+# ---------------- CONFIGURATION ----------------
 TOKEN = "7762113593:AAHEhm8iuyf4W0VfnF0MkifOeW2zCOfrMVo"  # Replace with your bot token
-
-# Bot Owner and Support Info
-OWNER_USERNAME = "@ll_SANKI_II"  # Replace with your @username
+OWNER_USERNAME = "ll_SANKI_II"  # Replace with your @username
 SUPPORT_CHANNEL = "https://t.me/SANKINETWORK"
-WELCOME_IMAGE_URL = "https://graph.org/file/2e37a57d083183ea24761-9cc38246fecc1af393.jpg"  # Replace with image URL
+WELCOME_IMAGE_URL = "https://graph.org/file/2e37a57d083183ea24761-9cc38246fecc1af393.jpg"  # Hosted image link
 
-# Word list (400 4-letter words)
-WORDS = [
-    "able", "acid", "aged", "also", "area", "army", "away", "baby", "back", "ball",
-    "band", "bank", "base", "bath", "bear", "beat", "been", "beer", "bell", "belt",
-    "best", "bill", "bird", "blow", "blue", "boat", "body", "bomb", "bond", "bone",
-    "book", "boom", "boot", "born", "boss", "both", "bowl", "bulk", "burn", "bush",
-    "busy", "cafe", "cake", "call", "calm", "came", "camp", "card", "care", "case",
-    "cash", "cast", "cell", "chat", "chip", "city", "club", "coal", "coat", "code",
-    "cold", "come", "cook", "cool", "cope", "copy", "core", "cost", "crew", "crop",
-    "dark", "data", "date", "dawn", "dead", "deal", "dean", "dear", "debt", "deep",
-    "deer", "desk", "dial", "died", "diet", "disc", "disk", "does", "done", "door",
-    "dose", "down", "draw", "drop", "drum", "duck", "dust", "duty", "each", "earn",
-    "ease", "east", "easy", "edge", "else", "even", "ever", "evil", "exit", "face",
-    "fact", "fail", "fair", "fall", "fame", "farm", "fast", "fate", "fear", "feed",
-    "feel", "feet", "fell", "felt", "file", "fill", "film", "find", "fine", "fire",
-    "firm", "fish", "five", "flat", "flow", "fold", "folk", "food", "fool", "foot",
-    "form", "fort", "four", "free", "from", "fuel", "full", "fund", "gain", "game",
-    "gate", "gave", "gear", "gene", "gift", "girl", "give", "glad", "goal", "goes",
-    "gold", "golf", "gone", "good", "gray", "grew", "grey", "grow", "gulf", "hair",
-    "half", "hall", "hand", "hang", "hard", "harm", "hate", "have", "head", "hear",
-    "heat", "held", "hell", "help", "herb", "hero", "hide", "high", "hill", "hire",
-    "hold", "hole", "holy", "home", "hope", "host", "hour", "huge", "hung", "hunt",
-    "hurt", "idea", "inch", "into", "iron", "item", "jack", "jane", "jean", "john",
-    "join", "jump", "jury", "just", "keep", "kent", "kept", "kick", "kill", "kind",
-    "king", "knee", "knew", "know", "lack", "lady", "laid", "lake", "land", "lane",
-    "last", "late", "lead", "left", "less", "life", "lift", "like", "line", "link",
-    "list", "live", "load", "loan", "lock", "logo", "long", "look", "lord", "lose",
-    "loss", "lost", "love", "luck", "made", "mail", "main", "make", "male", "many",
-    "mark", "mass", "matt", "meal", "mean", "meat", "meet", "menu", "mere", "mild",
-    "mile", "milk", "mill", "mind", "mine", "miss", "mode", "mood", "moon", "more",
-    "most", "move", "much", "must", "name", "navy", "near", "neck", "need", "news",
-    "next", "nice", "nick", "nine", "none", "nose", "note", "okay", "once", "only",
-    "onto", "open", "oral", "over", "pace", "pack", "page", "paid", "pain", "pair",
-    "palm", "park", "part", "pass", "past", "path", "peak", "pick", "pipe", "plan",
-    "play", "plot", "plug", "plus", "poll", "pool", "poor", "port", "post", "pull",
-    "pure", "push", "race", "rail", "rain", "rank", "rare", "rate", "read", "real",
-    "rear", "rely", "rent", "rest", "rice", "rich", "ride", "ring", "rise", "risk",
-    "road", "rock", "role", "roof", "room", "root", "rose", "rule", "rush", "safe",
-    "said", "sake", "sale", "salt", "same", "sand", "save", "seat", "seed", "seek",
-    "seem", "seen", "self", "sell", "send", "sent", "sept", "ship", "shop", "shot",
-    "show", "shut", "sick", "side", "sign", "site", "size", "skin", "slip", "slow",
-    "snow", "soft", "soil", "sold", "sole", "some", "song", "soon", "sort", "soul",
-    "spot", "star", "stay", "step", "stop", "such", "suit", "sure", "take", "tale",
-    "talk", "tall", "tank", "tape", "task", "team", "tech", "tell", "tend", "term",
-    "test", "text", "than", "that", "them", "then", "they", "thin", "this", "thus",
-    "till", "time", "tiny", "told", "toll", "tone", "tony", "took", "tool", "tour",
-    "town", "tree", "trip", "true", "tube", "tune", "turn", "type", "unit", "upon",
-    "used", "user", "vary", "vast", "very", "view", "vote", "wait", "wake", "walk",
-    "wall", "want", "ward", "warm", "wash", "wave", "ways", "weak", "wear", "week",
-    "well", "went", "were", "west", "what", "when", "whom", "wide", "wife", "wild",
-    "will", "wind", "wine", "wing", "wins", "wipe", "wise", "wish", "with", "wood",
-    "word", "wore", "work", "yard", "yeah", "year", "your", "zero", "zone"
-]
+MONGO_URL = "mongodb+srv://TSANKI:TSANKI@cluster0.u2eg9e1.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
 
-games = {}
-scores = {}
+# ---------------- DATABASE ----------------
+client = MongoClient(MONGO_URL)
+db = client["wordseekbot"]
+games_col = db["games"]
+scores_col = db["scores"]
 
-# Welcome message
-async def send_welcome_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ---------------- WORD LIST ----------------
+WORDS = ['lamp', 'desk', 'rain', 'gold', 'fire', 'blue', 'grin', 'mint']
+
+# ---------------- HELPERS ----------------
+def format_feedback(guess: str, correct_word: str) -> str:
+    feedback = []
+    for i in range(4):
+        if guess[i] == correct_word[i]:
+            feedback.append("🟩")
+        elif guess[i] in correct_word:
+            feedback.append("🟨")
+        else:
+            feedback.append("🟥")
+    return ''.join(feedback)
+
+def build_summary(guesses: list[str], correct_word: str, hint: str) -> str:
+    summary = ""
+    for guess in guesses:
+        feedback = format_feedback(guess, correct_word)
+        summary += f"{feedback} `{guess}`\n"
+    summary += f"\n_\"{hint}\"_\n"
+    return summary
+
+# ---------------- WELCOME MESSAGE ----------------
+async def send_welcome(chat, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [
-            InlineKeyboardButton("👤 Contact Owner", url=f"https://t.me/{OWNER_USERNAME}"),
-            InlineKeyboardButton("💬 Support Channel", url=SUPPORT_CHANNEL)
-        ]
+        [InlineKeyboardButton("▶️ Start Game", switch_inline_query_current_chat="/new")],
+        [InlineKeyboardButton("🏆 Leaderboard", switch_inline_query_current_chat="/leaderboard")],
+        [InlineKeyboardButton("Support", url=SUPPORT_CHANNEL)]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    caption = (
-        "**Welcome to WordSeekBot!**\n\n"
-        "Guess 4-letter words with friends in groups.\n"
-        "Start a game with /new and see scores with /leaderboard.\n"
-        "Bot gives color feedback + 👻 when you guess right!"
-    )
 
     await context.bot.send_photo(
-        chat_id=update.effective_chat.id,
+        chat_id=chat.id,
         photo=WELCOME_IMAGE_URL,
-        caption=caption,
+        caption=(
+            f"Welcome to *WordSeekBot*!\n\n"
+            f"Guess the 4-letter word. Use /new to start playing!\n\n"
+            f"Made by [@{OWNER_USERNAME}]"
+        ),
         parse_mode="Markdown",
         reply_markup=reply_markup
     )
 
-# /start handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await send_welcome_message(update, context)
+    await send_welcome(update.effective_chat, context)
 
-# when bot added to group
-async def added_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.my_chat_member.new_chat_member.status == "member":
-        await send_welcome_message(update, context)
+async def new_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    for member in update.chat_member.new_chat_members:
+        if member.id == context.bot.id:
+            await send_welcome(update.chat_member.chat, context)
 
-# /new command
+# ---------------- GAME COMMANDS ----------------
 async def new_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     word = random.choice(WORDS)
-    games[chat_id] = word
-    await update.message.reply_text(f"New game started! Guess the 4-letter word.")
+    hint = f"Starts with '{word[0]}'"
+    games_col.update_one(
+        {"chat_id": chat_id},
+        {"$set": {
+            "word": word,
+            "hint": hint,
+            "guesses": [],
+            "start_time": datetime.utcnow()
+        }},
+        upsert=True
+    )
+    await update.message.reply_text("New game started! Guess the 4-letter word.")
 
-# /leaderboard command
-async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    if chat_id not in scores:
-        await update.message.reply_text("No scores yet!")
-        return
-
-    sorted_scores = sorted(scores[chat_id].items(), key=lambda x: x[1], reverse=True)
-    msg = "**Leaderboard:**\n"
-    for user, score in sorted_scores:
-        msg += f"{user}: {score} pts\n"
-    await update.message.reply_text(msg, parse_mode="Markdown")
-
-# Handle guesses
 async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    if chat_id not in games:
+    text = update.message.text.lower()
+    if len(text) != 4 or not text.isalpha():
+        await update.message.reply_text("This word is invalid.")
         return
 
-    guess = update.message.text.lower()
-    if len(guess) != 4 or not guess.isalpha():
+    game = games_col.find_one({"chat_id": chat_id})
+    if not game:
         return
 
-    correct_word = games[chat_id]
-    colored = ""
-    for i in range(4):
-        if guess[i] == correct_word[i]:
-            colored += "🟩"
-        elif guess[i] in correct_word:
-            colored += "🟨"
-        else:
-            colored += "🟥"
+    correct_word = game["word"]
+    guesses = game.get("guesses", [])
 
-    await update.message.reply_text(colored)
+    if text in guesses:
+        await update.message.reply_text("You’ve already guessed this word.")
+        return
 
-    if guess == correct_word:
-        await context.bot.send_message(chat_id, f"{update.effective_user.first_name} guessed it! {correct_word}")
-        await update.message.reply_text("👻")
-        user = update.effective_user.first_name
-        if chat_id not in scores:
-            scores[chat_id] = {}
-        scores[chat_id][user] = scores[chat_id].get(user, 0) + 1
-        del games[chat_id]
+    guesses.append(text)
+    games_col.update_one(
+        {"chat_id": chat_id},
+        {"$set": {"guesses": guesses}}
+    )
 
-# Main function
-def main():
+    feedback = format_feedback(text, correct_word)
+    await update.message.reply_text(f"{feedback} `{text}`", parse_mode="Markdown")
+
+    if text == correct_word:
+        user = update.effective_user
+        now = datetime.utcnow()
+
+        scores_col.update_one(
+            {"chat_id": chat_id, "user_id": user.id},
+            {"$inc": {"score": 1}, "$set": {"name": user.first_name, "updated": now}},
+            upsert=True
+        )
+        scores_col.update_one(
+            {"chat_id": "global", "user_id": user.id},
+            {"$inc": {"score": 1}, "$set": {"name": user.first_name, "updated": now}},
+            upsert=True
+        )
+        scores_col.insert_one({
+            "chat_id": chat_id,
+            "user_id": user.id,
+            "name": user.first_name,
+            "score": 1,
+            "updated": now,
+            "type": "today"
+        })
+
+        summary = build_summary(guesses, correct_word, game.get("hint", ""))
+        await update.message.reply_text(f"👻 {user.first_name} guessed it right!\n\n{summary}", parse_mode="Markdown")
+        games_col.delete_one({"chat_id": chat_id})
+
+# ---------------- LEADERBOARD ----------------
+async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    keyboard = [
+        [
+            InlineKeyboardButton("📅 Today", callback_data=f"lb_today_{chat_id}"),
+            InlineKeyboardButton("🏆 Overall", callback_data=f"lb_overall_{chat_id}"),
+            InlineKeyboardButton("🌍 Global", callback_data="lb_global")
+        ]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Choose a leaderboard:", reply_markup=reply_markup)
+
+async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+
+    if data.startswith("lb_today_"):
+        chat_id = int(data.split("_")[2])
+        since = datetime.utcnow() - timedelta(days=1)
+        pipeline = [
+            {"$match": {"chat_id": chat_id, "updated": {"$gte": since}}},
+            {"$group": {"_id": "$user_id", "score": {"$sum": "$score"}, "name": {"$first": "$name"}}},
+            {"$sort": {"score": -1}},
+            {"$limit": 10}
+        ]
+        results = list(scores_col.aggregate(pipeline))
+        title = "📅 Today's Leaderboard"
+
+    elif data.startswith("lb_overall_"):
+        chat_id = int(data.split("_")[2])
+        results = list(scores_col.find({"chat_id": chat_id}).sort("score", -1).limit(10))
+        title = "🏆 Overall Leaderboard"
+
+    elif data == "lb_global":
+        results = list(scores_col.find({"chat_id": "global"}).sort("score", -1).limit(10))
+        title = "🌍 Global Leaderboard"
+
+    else:
+        return
+
+    if not results:
+        await query.edit_message_text("No scores found.")
+        return
+
+    msg = f"**{title}**\n"
+    for idx, row in enumerate(results, 1):
+        name = row.get("name", "Unknown")
+        score = row["score"]
+        msg += f"{idx}. {name} — {score} pts\n"
+
+    await query.edit_message_text(msg, parse_mode="Markdown")
+
+# ---------------- MAIN ----------------
+if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).build()
+
     app.add_handler(CommandHandler("start", start))
-    app.add_handler(ChatMemberHandler(added_to_group, chat_member_types=["my_chat_member"]))
+    app.add_handler(ChatMemberHandler(new_chat_member, ChatMemberHandler.CHAT_MEMBER))
     app.add_handler(CommandHandler("new", new_game))
     app.add_handler(CommandHandler("leaderboard", leaderboard))
+    app.add_handler(CallbackQueryHandler(leaderboard_callback, pattern=r"^lb_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
 
-    print("WordSeekBot is running...")
+    print("Bot is running...")
     app.run_polling()
-
-if __name__ == "__main__":
-    main()
