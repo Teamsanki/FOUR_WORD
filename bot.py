@@ -179,6 +179,7 @@ async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     elif data == "lb_global":
         results = list(scores_col.find({"chat_id": "global"}).sort("score", -1).limit(10))
         title = "🌍 Global Leaderboard"
+
     else:
         return
 
@@ -189,7 +190,6 @@ async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     msg = f"__{title}__\n"
     for i, row in enumerate(results, 1):
         msg += f"> {i}. *{row['name']}* — {row['score']} pts\n"
-
     await query.edit_message_text(msg, parse_mode="Markdown")
 
 # --- Main ---
