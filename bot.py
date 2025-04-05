@@ -4,37 +4,53 @@ from pymongo import MongoClient
 from telegram import (
     Update,
     InlineKeyboardButton,
-    InlineKeyboardMarkup,
-    InputMediaPhoto
+    InlineKeyboardMarkup
 )
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
     MessageHandler,
     CallbackQueryHandler,
-    ChatMemberHandler,
     ContextTypes,
     filters
 )
 
-# ---------------- CONFIGURATION ----------------
+# --- Bot Config ---
 TOKEN = "7762113593:AAHEhm8iuyf4W0VfnF0MkifOeW2zCOfrMVo"  # Replace with your bot token
-OWNER_USERNAME = "ll_SANKI_II"  # Replace with your @username
+OWNER_USERNAME = "@ll_SANKI_II"  # Replace with your Telegram username
 SUPPORT_CHANNEL = "https://t.me/SANKINETWORK"
-WELCOME_IMAGE_URL = "https://graph.org/file/2e37a57d083183ea24761-9cc38246fecc1af393.jpg"  # Hosted image link
+WELCOME_IMAGE_URL = "https://graph.org/file/2e37a57d083183ea24761-9cc38246fecc1af393.jpg"
 
+# --- MongoDB Setup ---
 MONGO_URL = "mongodb+srv://TSANKI:TSANKI@cluster0.u2eg9e1.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"
-
-# ---------------- DATABASE ----------------
 client = MongoClient(MONGO_URL)
 db = client["wordseekbot"]
 games_col = db["games"]
 scores_col = db["scores"]
 
-# ---------------- WORD LIST ----------------
-WORDS = ['lamp', 'desk', 'rain', 'gold', 'fire', 'blue', 'grin', 'mint']
+# --- Word List ---
+WORDS = ['lamp', 'desk', 'rain', 'gold', 'fire', 'blue', 'grin', 'mint', 'word', 'cold', 'heat', 'snow', 'wind',
+         'tree', 'rock', 'sand', 'lake', 'hill', 'dark', 'mild', 'bold', 'cool', 'jump', 'grab', 'walk', 'talk',
+         'hear', 'look', 'fast', 'slow', 'high', 'low', 'east', 'west', 'book', 'note', 'film', 'song', 'jazz',
+         'punk', 'folk', 'rope', 'kite', 'ball', 'bark', 'meow', 'lion', 'bear', 'wolf', 'deer', 'frog', 'fish',
+         'crab', 'seal', 'clam', 'gale', 'hail', 'mist', 'dawn', 'dusk', 'moon', 'star', 'mars', 'opal', 'ruby',
+         'pearl', 'coal', 'iron', 'lead', 'zinc', 'salt', 'soda', 'lime', 'navy', 'army', 'tank', 'jeep', 'bike',
+         'road', 'path', 'ride', 'zoom', 'gate', 'door', 'bell', 'farm', 'barn', 'shed', 'tool', 'gear', 'saw',
+         'nail', 'drip', 'drop', 'leak', 'pipe', 'flow', 'wave', 'surf', 'tide', 'reef', 'ship', 'sail', 'crew',
+         'deck', 'mast', 'port', 'dock', 'mile', 'yard', 'inch', 'foot', 'pace', 'step', 'clap', 'snap', 'ring',
+         'tone', 'beep', 'buzz', 'whip', 'slam', 'kick', 'poke', 'stab', 'burn', 'melt', 'boil', 'bake', 'fry',
+         'cook', 'brew', 'pour', 'fill', 'tilt', 'flip', 'turn', 'push', 'pull', 'drag', 'lift', 'send', 'text',
+         'chat', 'post', 'like', 'vote', 'rate', 'rank', 'name', 'list', 'pick', 'sort', 'plan', 'plot', 'idea',
+         'fact', 'quiz', 'game', 'luck', 'goal', 'rule', 'loss', 'gain', 'risk', 'test', 'pass', 'fail', 'hope',
+         'wish', 'need', 'love', 'hate', 'fear', 'calm', 'rage', 'smile', 'grim', 'wink', 'yawn', 'moan', 'sigh',
+         'gulp', 'snore', 'purr', 'chirp', 'hoot', 'roar', 'grow', 'bloom', 'leaf', 'stem', 'root', 'seed', 'soil',
+         'crop', 'corn', 'bean', 'peas', 'rice', 'wheat', 'flax', 'herb', 'bush', 'vine', 'wine', 'beer', 'shot',
+         'rum', 'cola', 'milk', 'cake', 'pie', 'meal', 'snack', 'dish', 'fork', 'spoon', 'bowl', 'mug', 'oven',
+         'sink', 'soap', 'toys', 'play', 'spin', 'roll', 'skip', 'joke', 'jest', 'code', 'data', 'file', 'byte',
+         'disk', 'link', 'node', 'ping', 'hash', 'site', 'blog', 'wiki', 'page', 'user', 'pass', 'form', 'mail',
+         'news', 'edit', 'view', 'read', 'load', 'save']
 
-# ---------------- HELPERS ----------------
+# --- Format Feedback ---
 def format_feedback(guess: str, correct_word: str) -> str:
     feedback = []
     for i in range(4):
@@ -46,6 +62,7 @@ def format_feedback(guess: str, correct_word: str) -> str:
             feedback.append("🟥")
     return ''.join(feedback)
 
+# --- Build Summary ---
 def build_summary(guesses: list[str], correct_word: str, hint: str) -> str:
     summary = ""
     for guess in guesses:
@@ -54,40 +71,24 @@ def build_summary(guesses: list[str], correct_word: str, hint: str) -> str:
     summary += f"\n_\"{hint}\"_\n"
     return summary
 
-# ---------------- WELCOME MESSAGE ----------------
-async def send_welcome(chat, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton("▶️ Start Game", switch_inline_query_current_chat="/new")],
-        [InlineKeyboardButton("🏆 Leaderboard", switch_inline_query_current_chat="/leaderboard")],
-        [InlineKeyboardButton("Support", url=SUPPORT_CHANNEL)]
-    ]
+# --- /start or member added ---
+async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat = update.effective_chat
+    keyboard = [[InlineKeyboardButton("Start Game", callback_data="/new")]]
     reply_markup = InlineKeyboardMarkup(keyboard)
-
     await context.bot.send_photo(
         chat_id=chat.id,
         photo=WELCOME_IMAGE_URL,
-        caption=(
-            f"Welcome to *WordSeekBot*!\n\n"
-            f"Guess the 4-letter word. Use /new to start playing!\n\n"
-            f"Made by [@{OWNER_USERNAME}]"
-        ),
-        parse_mode="Markdown",
+        caption="Welcome to WordSeekBot!\nGuess 4-letter words with color feedback.\nType /new to begin.",
         reply_markup=reply_markup
     )
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await send_welcome(update.effective_chat, context)
-
-async def new_chat_member(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    for member in update.chat_member.new_chat_members:
-        if member.id == context.bot.id:
-            await send_welcome(update.chat_member.chat, context)
-
-# ---------------- GAME COMMANDS ----------------
+# --- /new game ---
 async def new_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     word = random.choice(WORDS)
     hint = f"Starts with '{word[0]}'"
+
     games_col.update_one(
         {"chat_id": chat_id},
         {"$set": {
@@ -100,10 +101,22 @@ async def new_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
     await update.message.reply_text("New game started! Guess the 4-letter word.")
 
+# --- /stop game ---
+async def stop_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    games_col.delete_one({"chat_id": chat_id})
+    await update.message.reply_text("Game stopped. Use /new to start a new one.")
+
+# --- Handle guesses ---
 async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    user = update.effective_user
     text = update.message.text.lower()
+
     if len(text) != 4 or not text.isalpha():
+        return
+
+    if text not in WORDS:
         await update.message.reply_text("This word is invalid.")
         return
 
@@ -115,46 +128,36 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     guesses = game.get("guesses", [])
 
     if text in guesses:
-        await update.message.reply_text("You’ve already guessed this word.")
         return
 
     guesses.append(text)
-    games_col.update_one(
-        {"chat_id": chat_id},
-        {"$set": {"guesses": guesses}}
-    )
-
+    games_col.update_one({"chat_id": chat_id}, {"$set": {"guesses": guesses}})
     feedback = format_feedback(text, correct_word)
     await update.message.reply_text(f"{feedback} `{text}`", parse_mode="Markdown")
 
     if text == correct_word:
-        user = update.effective_user
         now = datetime.utcnow()
+
+        user_score = scores_col.find_one({"chat_id": chat_id, "user_id": user.id}) or {}
+        new_score = min(12, user_score.get("score", 0) + 1)
 
         scores_col.update_one(
             {"chat_id": chat_id, "user_id": user.id},
-            {"$inc": {"score": 1}, "$set": {"name": user.first_name, "updated": now}},
+            {"$set": {"name": user.first_name, "updated": now, "score": new_score}},
             upsert=True
         )
         scores_col.update_one(
             {"chat_id": "global", "user_id": user.id},
-            {"$inc": {"score": 1}, "$set": {"name": user.first_name, "updated": now}},
+            {"$set": {"name": user.first_name, "updated": now, "score": new_score}},
             upsert=True
         )
-        scores_col.insert_one({
-            "chat_id": chat_id,
-            "user_id": user.id,
-            "name": user.first_name,
-            "score": 1,
-            "updated": now,
-            "type": "today"
-        })
 
         summary = build_summary(guesses, correct_word, game.get("hint", ""))
-        await update.message.reply_text(f"👻 {user.first_name} guessed it right!\n\n{summary}", parse_mode="Markdown")
+        await update.message.reply_text(f"👻 *{user.first_name} guessed it right!*\n\n{summary}", parse_mode="Markdown")
+        await context.bot.send_message(chat_id=chat_id, text=f"🎉 Congratulations *{user.first_name}*! 👻", parse_mode="Markdown")
         games_col.delete_one({"chat_id": chat_id})
 
-# ---------------- LEADERBOARD ----------------
+# --- /leaderboard ---
 async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     keyboard = [
@@ -167,6 +170,7 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Choose a leaderboard:", reply_markup=reply_markup)
 
+# --- Leaderboard callback ---
 async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -177,7 +181,7 @@ async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         since = datetime.utcnow() - timedelta(days=1)
         pipeline = [
             {"$match": {"chat_id": chat_id, "updated": {"$gte": since}}},
-            {"$group": {"_id": "$user_id", "score": {"$sum": "$score"}, "name": {"$first": "$name"}}},
+            {"$group": {"_id": "$user_id", "score": {"$max": "$score"}, "name": {"$first": "$name"}}},
             {"$sort": {"score": -1}},
             {"$limit": 10}
         ]
@@ -200,21 +204,19 @@ async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.edit_message_text("No scores found.")
         return
 
-    msg = f"**{title}**\n"
+    msg = f"__{title}__\n"
     for idx, row in enumerate(results, 1):
-        name = row.get("name", "Unknown")
-        score = row["score"]
-        msg += f"{idx}. {name} — {score} pts\n"
+        msg += f"> {idx}. *{row['name']}* — {row['score']} pts\n"
 
     await query.edit_message_text(msg, parse_mode="Markdown")
 
-# ---------------- MAIN ----------------
+# --- Main ---
 if __name__ == "__main__":
     app = ApplicationBuilder().token(TOKEN).build()
 
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(ChatMemberHandler(new_chat_member, ChatMemberHandler.CHAT_MEMBER))
+    app.add_handler(CommandHandler("start", send_welcome))
     app.add_handler(CommandHandler("new", new_game))
+    app.add_handler(CommandHandler("stop", stop_game))
     app.add_handler(CommandHandler("leaderboard", leaderboard))
     app.add_handler(CallbackQueryHandler(leaderboard_callback, pattern=r"^lb_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
