@@ -29,7 +29,7 @@ scores_col = db["scores"]
 # --- Word List ---
 WORDS = [
     # A
-    'able', 'acid', 'aged', 'also', 'area', 'army', 'atom', 'aunt', 'away', 'axis',
+    'able', 'acid', 'aged', 'also', 'area', 'army', 'atom', 'aunt', 'away', 'axis', 'amit', 'dick', 'slap', 'crow',
     # B
     'baby', 'back', 'bake', 'ball', 'band', 'bank', 'barn', 'base', 'bath', 'bear',
     'beat', 'been', 'bell', 'belt', 'bend', 'best', 'bike', 'bill', 'bird', 'bite',
@@ -40,7 +40,7 @@ WORDS = [
     'cage', 'cake', 'call', 'calm', 'camp', 'card', 'care', 'cart', 'case', 'cash',
     'cast', 'cave', 'cell', 'chat', 'chip', 'city', 'clay', 'club', 'coal', 'coat',
     'cold', 'come', 'cook', 'cool', 'cope', 'cord', 'core', 'cost', 'crew', 'crop',
-    'curl', 'cute',
+    'curl', 'cute', 'chill'
     # D
     'dark', 'data', 'date', 'dawn', 'deal', 'debt', 'deep', 'deer', 'desk', 'dial',
     'dice', 'died', 'diet', 'dime', 'dine', 'dish', 'disk', 'dive', 'dock', 'does',
@@ -91,7 +91,7 @@ WORDS = [
     'pack', 'page', 'paid', 'pain', 'pair', 'palm', 'park', 'part', 'pass', 'past',
     'path', 'peak', 'pear', 'peel', 'peer', 'peny', 'pick', 'pile', 'pill', 'pine',
     'pink', 'pipe', 'plan', 'play', 'plot', 'plug', 'plus', 'poem', 'pole', 'poll',
-    'pond', 'pool', 'poor', 'port', 'post', 'pull', 'pure', 'push',
+    'pond', 'pool', 'poor', 'port', 'post', 'pull', 'pure', 'push', 'pins', 
     # Q
     'quad', 'quiz', 'quit', 'quip',
     # R
@@ -104,7 +104,7 @@ WORDS = [
     'seat', 'seed', 'seek', 'seem', 'seen', 'self', 'sell', 'send', 'ship', 'shop',
     'shot', 'show', 'shut', 'side', 'sign', 'silk', 'sink', 'site', 'size', 'slip',
     'slow', 'snap', 'snow', 'soap', 'soft', 'soil', 'sold', 'sole', 'some', 'song',
-    'soon', 'sort', 'soul', 'spot', 'star', 'stay', 'step', 'stop', 'such', 'suit',
+    'soon', 'sort', 'soul', 'spot', 'star', 'stay', 'step', 'stop', 'such', 'suit', 'smag',
     'sure', 'swim', 'sync',
     # T
     'tail', 'take', 'tale', 'talk', 'tall', 'tank', 'tape', 'task', 'team', 'tear',
@@ -120,7 +120,7 @@ WORDS = [
     'wage', 'wait', 'wake', 'walk', 'wall', 'want', 'ward', 'warm', 'warn', 'wash',
     'wave', 'weak', 'wear', 'weed', 'week', 'well', 'west', 'what', 'when', 'whip',
     'wide', 'wife', 'wild', 'will', 'wind', 'wine', 'wing', 'wink', 'wipe', 'wire',
-    'wise', 'wish', 'wolf', 'wood', 'word', 'worn', 'wrap',
+    'wise', 'wish', 'wolf', 'wood', 'word', 'worn', 'wrap', 'work',
     # X
     'xray',
     # Y
