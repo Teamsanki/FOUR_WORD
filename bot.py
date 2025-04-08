@@ -1,6 +1,7 @@
 import random
 from datetime import datetime, timedelta
 from pymongo import MongoClient
+async def log_bot_added(update: ChatMemberUpdated, context: ContextTypes.DEFAULT_TYPE):
 from telegram import (
     Update,
     InlineKeyboardButton,
