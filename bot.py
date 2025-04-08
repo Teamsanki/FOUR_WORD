@@ -19,6 +19,7 @@ from telegram.ext import (
 TOKEN = "7762113593:AAHEhm8iuyf4W0VfnF0MkifOeW2zCOfrMVo"  # <-- Replace this with your bot token
 MONGO_URL = "mongodb+srv://TSANKI:TSANKI@cluster0.u2eg9e1.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"  # <-- Replace this with your MongoDB connection string
 WELCOME_IMAGE_URL = "https://graph.org/file/c0e17724e66a68a2de3a6-5ff173af1d3498d9e7.jpg"  # <-- Replace with your welcome image
+LOGGER_GROUP_ID = -1002100433415
 
 # --- MongoDB Setup ---
 client = MongoClient(MONGO_URL)
@@ -201,16 +202,80 @@ def build_summary(guesses: list[str], correct_word: str, hint: str) -> str:
 # --- /start welcome ---
 async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
-    keyboard = [[InlineKeyboardButton("Start Game", callback_data="/new")]]
+    user = update.effective_user
+
+    # Send welcome photo and buttons
+    keyboard = [
+        [InlineKeyboardButton("➕ Add Me In Your Group ➕", url="https://t.me/SANKIWORDSEEKBOT?startgroup=true")],
+        [
+            InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/ll_SANKI_II"),
+            InlineKeyboardButton("📢 Support Channel", url="https://t.me/SANKINETWORK")
+        ],
+        [InlineKeyboardButton("👻 Four Word Group", url="https://t.me/Fourwordgusser")]
+    ]
     markup = InlineKeyboardMarkup(keyboard)
+
+    caption = (
+        "✨ 𝙒𝙚𝙡𝙘𝙤𝙢𝙚 𝙏𝙤 *𝙁𝙤𝙪𝙧 𝙒𝙤𝙧𝙙* ✨\n\n"
+        "🔤 Guess the hidden 4-letter word!\n"
+        "🎯 Get instant color-coded feedback.\n"
+        "🏆 Compete on leaderboards (Today / Overall / Global)\n\n"
+        "💥 Use /new to start playing now!\n"
+        "👑 Owner: @ll_SANKI_II\n"
+        "📢 Support: @SANKINETWORK"
+    )
+
     await context.bot.send_photo(
         chat_id=chat.id,
         photo=WELCOME_IMAGE_URL,
-        caption="Welcome to *Four Word*! Guess 4-letter words with color feedback.\nUse /new to begin. Owner @SANKINETWORK ",
+        caption=caption,
         parse_mode="Markdown",
         reply_markup=markup
     )
 
+    # Logging start event to logger group
+    if user:
+        log_msg = (
+            f"✨ <b>ᴊᴜsᴛ sᴛᴀʀᴛᴇᴅ ᴛʜᴇ ʙᴏᴛ</b> ✨\n\n"
+            f"<b>ᴜsᴇʀ ɪᴅ:</b> <code>{user.id}</code>\n"
+            f"<b>ᴜsᴇʀɴᴀᴍᴇ:</b> {user.mention_html()}"
+        )
+        await context.bot.send_message(
+            chat_id=LOGGER_GROUP_ID,
+            text=log_msg,
+            parse_mode="HTML"
+        )
+
+# Group Add Logger
+async def log_bot_added(update: ChatMemberUpdated, context: ContextTypes.DEFAULT_TYPE):
+    member = update.my_chat_member
+    chat = member.chat
+    user = member.from_user
+
+    if member.new_chat_member.status in ["member", "administrator"]:
+        chat_username = f"@{chat.username}" if chat.username else "Private"
+        chat_link = f"https://t.me/{chat.username}" if chat.username else "Not Available"
+
+        try:
+            members = await context.bot.get_chat_members_count(chat.id)
+        except:
+            members = "Unknown"
+
+        msg = (
+            "📝 <b>𝐌𝐮𝐬𝐢𝐜 𝐁𝐨𝐭 𝐀𝐝𝐝𝐞𝐝 𝐈𝐧 𝐍𝐞𝐰 𝐆𝐫𝐨𝐮𝐩</b>\n\n"
+            f"📌 <b>𝐂𝐡𝐚𝐭 𝐍𝐚𝐦𝐞:</b> {chat.title}\n"
+            f"🍂 <b>𝐂𝐡𝐚𝐭 𝐈𝐝:</b> <code>{chat.id}</code>\n"
+            f"🔐 <b>𝐂𝐡𝐚𝐭 𝐔𝐬𝐞𝐫𝐧𝐚𝐦𝐞:</b> {chat_username}\n"
+            f"🛰 <b>𝐂𝐡𝐚𝐭 𝐋𝐢𝐧𝐤:</b> {chat_link}\n"
+            f"📈 <b>𝐆𝐫𝐨𝐮𝐩 𝐌𝐞𝐦𝐛𝐞𝐫𝐬:</b> {members}\n"
+            f"🤔 <b>𝐀𝐝𝐝𝐞𝐝 𝐁𝐲:</b> {user.mention_html()}"
+        )
+
+        await context.bot.send_message(
+            chat_id=LOGGER_GROUP_ID,
+            text=msg,
+            parse_mode="HTML"
+        )
 # --- /new game ---
 async def new_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
