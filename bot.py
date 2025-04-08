@@ -423,7 +423,6 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
 
-    # Show default leaderboard based on context
     if is_group:
         await show_leaderboard(update, context, mode="overall", chat_id=chat_id, show_back=False)
     else:
@@ -431,8 +430,7 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("Choose a leaderboard:", reply_markup=reply_markup)
 
-# --- Leaderboard Callback ---
-# --- Leaderboard callback ---
+
 async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -466,26 +464,27 @@ async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         await query.edit_message_text("No scores found.")
         return
 
-    # Create leaderboard message with mentions
-    msg = f"__{title}__\n"
+    # Styled leaderboard message with quote block
+    msg = f"**{title}**\n\n"
     medals = ["🥇", "🥈", "🥉"]
     for idx, row in enumerate(results, 1):
         medal = medals[idx-1] if idx <= 3 else f"{idx}."
-        name_link = f"[{row['name']}](tg://user?id={row['_id']})"
-        msg += f"> {medal} {name_link} — *{row['score']}* pts\n"
+        name = row.get("name", "Player")
+        user_id = row["_id"]
+        score = row["score"]
+        msg += f"➤ `{medal}` [{name}](tg://user?id={user_id}) — *{score}* pts\n"
 
-    # Add back button
-    chat_id = query.message.chat.id
-    back_keyboard = [
+    keyboard = [
         [
-            InlineKeyboardButton("📅 Today", callback_data=f"lb_today_{chat_id}"),
-            InlineKeyboardButton("🏆 Overall", callback_data=f"lb_overall_{chat_id}"),
+            InlineKeyboardButton("📅 Today", callback_data=f"lb_today_{query.message.chat.id}"),
+            InlineKeyboardButton("🏆 Overall", callback_data=f"lb_overall_{query.message.chat.id}"),
             InlineKeyboardButton("🌍 Global", callback_data="lb_global")
         ]
     ]
-    await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(back_keyboard))
 
-# --- Leaderboard Display Helper ---
+    await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
+
+
 async def show_leaderboard(update_or_query, context, mode, chat_id, show_back=True):
     query = getattr(update_or_query, "callback_query", None)
     since = datetime.utcnow() - timedelta(days=1)
@@ -498,31 +497,36 @@ async def show_leaderboard(update_or_query, context, mode, chat_id, show_back=Tr
             {"$limit": 10}
         ]
         results = list(scores_col.aggregate(pipeline))
-        title = "📅 *Today's Leaderboard*"
+        title = "📅 Today's Leaderboard"
 
     elif mode == "overall":
         results = list(scores_col.find({"chat_id": chat_id}).sort("score", -1).limit(10))
-        title = "🏆 *Overall Leaderboard*"
+        title = "🏆 Overall Leaderboard"
 
     elif mode == "global":
         results = list(scores_col.find({"chat_id": "global"}).sort("score", -1).limit(10))
-        title = "🌍 *Global Leaderboard*"
+        title = "🌍 Global Leaderboard"
 
     else:
         return
 
     if not results:
-        await query.edit_message_text("No scores found.")
+        if query:
+            await query.edit_message_text("No scores found.")
+        else:
+            await update_or_query.message.reply_text("No scores found.")
         return
 
-    msg = f"__{title}__\n"
+    # Styled leaderboard message with quote block
+    msg = f"**{title}**\n\n"
+    medals = ["🥇", "🥈", "🥉"]
     for idx, row in enumerate(results, 1):
-        user_id = row['_id']
-        name = row['name']
-        score = row['score']
-        msg += f"> {idx}. [{name}](tg://user?id={user_id}) — *{score}* pts\n"
+        medal = medals[idx-1] if idx <= 3 else f"{idx}."
+        name = row.get("name", "Player")
+        user_id = row["_id"]
+        score = row["score"]
+        msg += f"➤ `{medal}` [{name}](tg://user?id={user_id}) — *{score}* pts\n"
 
-    # Back button
     keyboard = []
     if show_back and query:
         back_btn = InlineKeyboardButton("🔙 Back", callback_data=f"lb_back_{chat_id}")
