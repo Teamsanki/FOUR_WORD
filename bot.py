@@ -1,6 +1,7 @@
 import random
 from datetime import datetime, timedelta
 from pymongo import MongoClient
+from telegram.helpers import escape_markdown
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -235,8 +236,12 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
         summary = build_summary(guesses, correct_word, game.get("hint", ""))
         await update.message.reply_text(f"👻 *{user.first_name} guessed it right!*\n\n{summary}", parse_mode="Markdown")
         
-        # Send congratulations message
-        await context.bot.send_message(chat_id=chat_id, text=f"🎉 Congratulations *{user.first_name}! You've guessed it right! 🎉", parse_mode="Markdown")
+       first_name = escape_markdown(user.first_name, version=2)
+await context.bot.send_message(
+    chat_id=chat_id,
+    text=f"🎉 Congratulations *{first_name}*! You've guessed it right! 🎉",
+    parse_mode="MarkdownV2"
+)
         
         # React to the user's message
         await context.bot.reaction(update.message.message_id, '👻')
