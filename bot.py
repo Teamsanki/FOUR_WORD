@@ -208,7 +208,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     correct_word = game["word"]
     guesses = game.get("guesses", [])
-    max_guesses = game.get("max_guesses", 6)
+    max_guesses = game.get("max_guesses", 20)
 
     if text in guesses:
         await update.message.reply_text("You've already guessed that word.")
