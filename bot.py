@@ -410,9 +410,10 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Game over! The correct word was `{correct_word}`. Use /new to start again.")
         games_col.delete_one({"chat_id": chat_id})
 
-# --- /leaderboard ---
+# --- /leaderboard Command ---
 async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
+    is_group = update.effective_chat.type in ["group", "supergroup"]
     keyboard = [
         [
             InlineKeyboardButton("📅 Today", callback_data=f"lb_today_{chat_id}"),
@@ -421,9 +422,16 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
+
+    # Show default leaderboard based on context
+    if is_group:
+        await show_leaderboard(update, context, mode="overall", chat_id=chat_id, show_back=False)
+    else:
+        await show_leaderboard(update, context, mode="today", chat_id=chat_id, show_back=False)
+
     await update.message.reply_text("Choose a leaderboard:", reply_markup=reply_markup)
 
-# --- Leaderboard callback ---
+# --- Leaderboard Callback ---
 async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -431,7 +439,33 @@ async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
     if data.startswith("lb_today_"):
         chat_id = int(data.split("_")[2])
-        since = datetime.utcnow() - timedelta(days=1)
+        await show_leaderboard(update, context, mode="today", chat_id=chat_id)
+
+    elif data.startswith("lb_overall_"):
+        chat_id = int(data.split("_")[2])
+        await show_leaderboard(update, context, mode="overall", chat_id=chat_id)
+
+    elif data == "lb_global":
+        await show_leaderboard(update, context, mode="global", chat_id="global")
+
+    elif data.startswith("lb_back_"):
+        chat_id = int(data.split("_")[2])
+        keyboard = [
+            [
+                InlineKeyboardButton("📅 Today", callback_data=f"lb_today_{chat_id}"),
+                InlineKeyboardButton("🏆 Overall", callback_data=f"lb_overall_{chat_id}"),
+                InlineKeyboardButton("🌍 Global", callback_data="lb_global")
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await query.edit_message_text("Choose a leaderboard:", reply_markup=reply_markup)
+
+# --- Leaderboard Display Helper ---
+async def show_leaderboard(update_or_query, context, mode, chat_id, show_back=True):
+    query = getattr(update_or_query, "callback_query", None)
+    since = datetime.utcnow() - timedelta(days=1)
+
+    if mode == "today":
         pipeline = [
             {"$match": {"chat_id": chat_id, "updated": {"$gte": since}}},
             {"$group": {"_id": "$user_id", "score": {"$max": "$score"}, "name": {"$first": "$name"}}},
@@ -439,16 +473,15 @@ async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             {"$limit": 10}
         ]
         results = list(scores_col.aggregate(pipeline))
-        title = "📅 Today's Leaderboard"
+        title = "📅 *Today's Leaderboard*"
 
-    elif data.startswith("lb_overall_"):
-        chat_id = int(data.split("_")[2])
+    elif mode == "overall":
         results = list(scores_col.find({"chat_id": chat_id}).sort("score", -1).limit(10))
-        title = "🏆 Overall Leaderboard"
+        title = "🏆 *Overall Leaderboard*"
 
-    elif data == "lb_global":
+    elif mode == "global":
         results = list(scores_col.find({"chat_id": "global"}).sort("score", -1).limit(10))
-        title = "🌍 Global Leaderboard"
+        title = "🌍 *Global Leaderboard*"
 
     else:
         return
@@ -459,9 +492,23 @@ async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
     msg = f"__{title}__\n"
     for idx, row in enumerate(results, 1):
-        msg += f"> {idx}. *{row['name']}* — {row['score']} pts\n"
+        user_id = row['_id']
+        name = row['name']
+        score = row['score']
+        msg += f"> {idx}. [{name}](tg://user?id={user_id}) — *{score}* pts\n"
 
-    await query.edit_message_text(msg, parse_mode="Markdown")
+    # Back button
+    keyboard = []
+    if show_back and query:
+        back_btn = InlineKeyboardButton("🔙 Back", callback_data=f"lb_back_{chat_id}")
+        keyboard.append([back_btn])
+
+    reply_markup = InlineKeyboardMarkup(keyboard) if keyboard else None
+
+    if query:
+        await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
+    else:
+        await update_or_query.message.reply_text(msg, parse_mode="Markdown", reply_markup=reply_markup)
 
 # --- Main ---
 if __name__ == "__main__":
