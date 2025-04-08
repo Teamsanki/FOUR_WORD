@@ -1,11 +1,12 @@
+# All imports come FIRST
 import random
 from datetime import datetime, timedelta
 from pymongo import MongoClient
-async def log_bot_added(update: ChatMemberUpdated, context: ContextTypes.DEFAULT_TYPE):
 from telegram import (
     Update,
     InlineKeyboardButton,
-    InlineKeyboardMarkup
+    InlineKeyboardMarkup,
+    ChatMemberUpdated  # <-- Ye yahan hona chahiye
 )
 from telegram.ext import (
     ApplicationBuilder,
@@ -13,8 +14,14 @@ from telegram.ext import (
     MessageHandler,
     CallbackQueryHandler,
     ContextTypes,
+    ChatMemberHandler,  # <-- Ye bhi chahiye agar tum ChatMemberUpdated use kar rahe ho
     filters
 )
+
+# Now your function definitions can begin
+async def log_bot_added(update: ChatMemberUpdated, context: ContextTypes.DEFAULT_TYPE):
+    # your logic
+    pass
 
 # --- Bot Config ---
 TOKEN = "7762113593:AAHEhm8iuyf4W0VfnF0MkifOeW2zCOfrMVo"  # <-- Replace this with your bot token
