@@ -175,7 +175,8 @@ async def new_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "word": word,
             "hint": hint,
             "guesses": [],
-            "start_time": datetime.utcnow()
+            "start_time": datetime.utcnow(),
+            "max_guesses": 6  # Limit the number of guesses
         }},
         upsert=True
     )
@@ -187,7 +188,6 @@ async def stop_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     games_col.delete_one({"chat_id": chat_id})
     await update.message.reply_text("Game stopped. Use /new to start a new one.")
 
-# --- Handle guesses ---
 async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     game = games_col.find_one({"chat_id": chat_id})
@@ -198,6 +198,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.lower()
 
     if not text.isalpha() or len(text) != 4:
+        await update.message.reply_text("Please enter a valid 4-letter word.")
         return
 
     if text not in WORDS:
@@ -206,18 +207,20 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     correct_word = game["word"]
     guesses = game.get("guesses", [])
+    max_guesses = game.get("max_guesses", 6)
 
     if text in guesses:
+        await update.message.reply_text("You've already guessed that word.")
         return
 
     guesses.append(text)
     games_col.update_one({"chat_id": chat_id}, {"$set": {"guesses": guesses}})
+
     feedback = format_feedback(text, correct_word)
-    await update.message.reply_text(f"{feedback} {text}", parse_mode="Markdown")
+    user_message = await update.message.reply_text(f"{feedback} {text}", parse_mode="Markdown")
 
     if text == correct_word:
         now = datetime.utcnow()
-
         scores_col.update_one(
             {"chat_id": chat_id, "user_id": user.id},
             {"$set": {"name": user.first_name, "updated": now}, "$inc": {"score": 12}},
@@ -231,7 +234,16 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         summary = build_summary(guesses, correct_word, game.get("hint", ""))
         await update.message.reply_text(f"👻 *{user.first_name} guessed it right!*\n\n{summary}", parse_mode="Markdown")
-        await context.bot.send_message(chat_id=chat_id, text=f"🎉 Congratulations *{user.first_name}*! 👻", parse_mode="Markdown")
+        
+        # Send congratulations message
+        await context.bot.send_message(chat_id=chat_id, text=f"🎉 Congratulations *{user.first_name}! You've guessed it right! 🎉", parse_mode="Markdown")
+        
+        # React to the user's message
+        await context.bot.reaction(update.message.message_id, '👻')
+
+        games_col.delete_one({"chat_id": chat_id})
+    elif len(guesses) >= max_guesses:
+        await update.message.reply_text(f"Game over! The correct word was `{correct_word}`. Use /new to start again.")
         games_col.delete_one({"chat_id": chat_id})
 
 # --- /leaderboard ---
