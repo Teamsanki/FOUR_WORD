@@ -183,7 +183,55 @@ WORDS = [
     'wish', 'goal', 'task', 'list', 'note', 'idea', 'memo', 'soon', 'date', 'time',
     'text', 'okay', 'kbye', 'nope', 'heyy', 'stop', 'love', 'pain', 'gift', 'ring',
     'wife', 'babe', 'cute', 'girl', 'boii', 'date', 'kiss', 'hold', 'plan', 'ride',
-    'drop', 'call', 'chat', 'miss', 'back', 'soon', 'home', 'stay', 'feel', 'hope'
+    'drop', 'call', 'chat', 'miss', 'back', 'soon', 'home', 'stay', 'feel', 'hope',
+    'fuel', 'ride', 'walk', 'cash', 'card', 'bank', 'send', 'paid', 'drop', 'ping',
+    'bump', 'fast', 'slow', 'glow', 'mask', 'heal', 'dark', 'chat', 'save', 'play',
+    'turn', 'cool', 'pass', 'fail', 'note', 'read', 'edit', 'text', 'view', 'snap',
+    'hide', 'show', 'hold', 'drop', 'stop', 'open', 'list', 'link', 'site', 'page',
+    'shop', 'sale', 'deal', 'item', 'size', 'shoe', 'jean', 'belt', 'cart', 'bill',
+    'rate', 'like', 'post', 'news', 'feed', 'info', 'data', 'memo', 'call', 'talk',
+    'plan', 'goal', 'idea', 'wish', 'luck', 'hope', 'stay', 'live', 'move', 'camp',
+    'trip', 'zone', 'area', 'site', 'home', 'room', 'lamp', 'door', 'lock', 'seat',
+    'pick', 'pull', 'push', 'grab', 'make', 'type', 'skip', 'load', 'exit', 'join',
+    'mute', 'hear', 'buzz', 'ring', 'tone', 'beep', 'flip', 'hold', 'drop', 'walk',
+    'feel', 'pain', 'ouch', 'hurt', 'cold', 'warm', 'heat', 'rain', 'snow', 'damp',
+    'dusk', 'dawn', 'nite', 'noon', 'date', 'year', 'week', 'time', 'mins', 'secs',
+    'soon', 'gone', 'past', 'next', 'then', 'late', 'meet', 'chat', 'miss', 'seen',
+    'back', 'away', 'rest', 'play', 'game', 'solo', 'duo', 'team', 'winr', 'lose',
+    'fail', 'skip', 'done', 'view', 'grab', 'hunt', 'camp', 'ping', 'text', 'chat',
+    'vote', 'poll', 'like', 'rate', 'rank', 'list', 'item', 'cart', 'deal', 'cost',
+    'loan', 'debt', 'rich', 'poor', 'work', 'task', 'done', 'soon', 'late', 'plan',
+    'fire', 'safe', 'cool', 'warm', 'wind', 'snow', 'haze', 'mist', 'drop', 'pour',
+    'boil', 'cook', 'bake', 'rice', 'milk', 'salt', 'meat', 'fish', 'food', 'cake',
+    'fork', 'spoon', 'dine', 'seat', 'hall', 'room', 'lamp', 'home', 'stay', 'move',
+    'text', 'chat', 'buzz', 'note', 'edit', 'clip', 'film', 'snap', 'reel', 'live',
+    'ping', 'link', 'site', 'news', 'post', 'like', 'save', 'view', 'load', 'exit',
+    'open', 'lock', 'door', 'bell', 'lamp', 'shop', 'mall', 'plaza', 'road', 'lane',
+    'city', 'zone', 'area', 'side', 'path', 'walk', 'jump', 'ride', 'bike', 'jeep',
+    'gear', 'auto', 'fuel', 'toll', 'pass', 'road', 'sign', 'trip', 'stay', 'park',
+    'seat', 'belt', 'safe', 'exit', 'turn', 'wait', 'slow', 'move', 'rush', 'stop',
+    'mute', 'buzz', 'call', 'ring', 'vibe', 'tone', 'load', 'save', 'exit', 'boot',
+    'tech', 'apps', 'game', 'play', 'quit', 'fail', 'pass', 'test', 'quiz', 'exam',
+    'task', 'work', 'deal', 'mail', 'send', 'ship', 'load', 'pack', 'pick', 'drop',
+    'done', 'skip', 'view', 'list', 'note', 'memo', 'text', 'edit', 'link', 'page',
+    'site', 'wiki', 'post', 'news', 'clip', 'film', 'snap', 'show', 'load', 'live',
+    'cash', 'paid', 'card', 'debt', 'loan', 'earn', 'rate', 'bank', 'save', 'send',
+    'bill', 'cost', 'deal', 'item', 'shop', 'cart', 'size', 'jean', 'belt', 'pair',
+    'look', 'vibe', 'cool', 'dark', 'cute', 'bold', 'wild', 'calm', 'kind', 'mean',
+    'lazy', 'sore', 'grim', 'wish', 'pray', 'gift', 'pack', 'wrap', 'ring', 'neck',
+    'babe', 'wife', 'lady', 'baby', 'kids', 'girl', 'boii', 'bros', 'best', 'gang',
+    'mate', 'crew', 'team', 'bros', 'home', 'base', 'stay', 'room', 'hall', 'gate',
+    'open', 'shut', 'pull', 'push', 'buzz', 'ring', 'bell', 'door', 'seat', 'lamp',
+    'trip', 'tour', 'camp', 'tent', 'ride', 'bike', 'walk', 'move', 'rush', 'goon',
+    'text', 'snap', 'edit', 'clip', 'load', 'play', 'join', 'exit', 'pass', 'fail',
+    'plan', 'goal', 'idea', 'note', 'memo', 'test', 'quiz', 'exam', 'task', 'work',
+    'meet', 'call', 'chat', 'talk', 'type', 'ping', 'buzz', 'hold', 'drop', 'stay',
+    'jump', 'ride', 'bike', 'jeep', 'gear', 'fast', 'slow', 'hype', 'news', 'page',
+    'rate', 'rank', 'poll', 'vote', 'pass', 'skip', 'list', 'link', 'site', 'edit',
+    'time', 'year', 'date', 'week', 'soon', 'past', 'late', 'gone', 'next', 'done',
+    'cold', 'warm', 'cool', 'fire', 'rain', 'snow', 'heat', 'mist', 'hail', 'wind',
+    'okay', 'fine', 'yeah', 'nope', 'nooo', 'yess', 'okay', 'idk', 'bruh', 'lmao',
+    'kbye', 'ttyl', 'omfg', 'ughh', 'yolo', 'fomo', 'bffs', 'defz', 'whut', 'frfr'
 ]
 
 # --- Format Feedback ---
@@ -425,7 +473,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("leaderboard", leaderboard))
     app.add_handler(CallbackQueryHandler(leaderboard_callback, pattern=r"^lb_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
-    application.add_handler(ChatMemberHandler(log_bot_added, chat_member_types=["my_chat_member"]))
-    
+    app.add_handler(ChatMemberHandler(log_bot_added, chat_member_types=["my_chat_member"]))
+
     print("Bot is running...")
     app.run_polling()
