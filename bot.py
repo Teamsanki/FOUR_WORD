@@ -1,7 +1,6 @@
 import random
 from datetime import datetime, timedelta
 from pymongo import MongoClient
-from telegram.helpers import escape_markdown
 from telegram import (
     Update,
     InlineKeyboardButton,
@@ -189,6 +188,7 @@ async def stop_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
     games_col.delete_one({"chat_id": chat_id})
     await update.message.reply_text("Game stopped. Use /new to start a new one.")
 
+# --- Handle guesses ---
 async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     game = games_col.find_one({"chat_id": chat_id})
@@ -218,7 +218,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     games_col.update_one({"chat_id": chat_id}, {"$set": {"guesses": guesses}})
 
     feedback = format_feedback(text, correct_word)
-    user_message = await update.message.reply_text(f"{feedback} {text}", parse_mode="Markdown")
+    await update.message.reply_text(f"{feedback} {text}", parse_mode="Markdown")
 
     if text == correct_word:
         now = datetime.utcnow()
@@ -235,17 +235,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         summary = build_summary(guesses, correct_word, game.get("hint", ""))
         await update.message.reply_text(f"👻 *{user.first_name} guessed it right!*\n\n{summary}", parse_mode="Markdown")
-        
-       first_name = escape_markdown(user.first_name, version=2)
-await context.bot.send_message(
-    chat_id=chat_id,
-    text=f"🎉 Congratulations *{first_name}*! You've guessed it right! 🎉",
-    parse_mode="MarkdownV2"
-)
-        
-        # React to the user's message
-        await context.bot.reaction(update.message.message_id, '👻')
-
+        await context.bot.send_message(chat_id=chat_id, text=f"🎉 Congratulations *{user.first_name}*! 👻", parse_mode="Markdown")
         games_col.delete_one({"chat_id": chat_id})
     elif len(guesses) >= max_guesses:
         await update.message.reply_text(f"Game over! The correct word was `{correct_word}`. Use /new to start again.")
