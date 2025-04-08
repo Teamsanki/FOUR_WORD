@@ -417,6 +417,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("leaderboard", leaderboard))
     app.add_handler(CallbackQueryHandler(leaderboard_callback, pattern=r"^lb_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
-
+    application.add_handler(ChatMemberHandler(log_bot_added, chat_member_types=["my_chat_member"]))
+    
     print("Bot is running...")
     app.run_polling()
