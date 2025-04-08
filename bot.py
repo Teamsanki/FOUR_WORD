@@ -432,6 +432,7 @@ async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Choose a leaderboard:", reply_markup=reply_markup)
 
 # --- Leaderboard Callback ---
+# --- Leaderboard callback ---
 async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -439,26 +440,50 @@ async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYP
 
     if data.startswith("lb_today_"):
         chat_id = int(data.split("_")[2])
-        await show_leaderboard(update, context, mode="today", chat_id=chat_id)
+        since = datetime.utcnow() - timedelta(days=1)
+        pipeline = [
+            {"$match": {"chat_id": chat_id, "updated": {"$gte": since}}},
+            {"$group": {"_id": "$user_id", "score": {"$max": "$score"}, "name": {"$first": "$name"}}},
+            {"$sort": {"score": -1}},
+            {"$limit": 10}
+        ]
+        results = list(scores_col.aggregate(pipeline))
+        title = "📅 Today's Leaderboard"
 
     elif data.startswith("lb_overall_"):
         chat_id = int(data.split("_")[2])
-        await show_leaderboard(update, context, mode="overall", chat_id=chat_id)
+        results = list(scores_col.find({"chat_id": chat_id}).sort("score", -1).limit(10))
+        title = "🏆 Overall Leaderboard"
 
     elif data == "lb_global":
-        await show_leaderboard(update, context, mode="global", chat_id="global")
+        results = list(scores_col.find({"chat_id": "global"}).sort("score", -1).limit(10))
+        title = "🌍 Global Leaderboard"
 
-    elif data.startswith("lb_back_"):
-        chat_id = int(data.split("_")[2])
-        keyboard = [
-            [
-                InlineKeyboardButton("📅 Today", callback_data=f"lb_today_{chat_id}"),
-                InlineKeyboardButton("🏆 Overall", callback_data=f"lb_overall_{chat_id}"),
-                InlineKeyboardButton("🌍 Global", callback_data="lb_global")
-            ]
+    else:
+        return
+
+    if not results:
+        await query.edit_message_text("No scores found.")
+        return
+
+    # Create leaderboard message with mentions
+    msg = f"__{title}__\n"
+    medals = ["🥇", "🥈", "🥉"]
+    for idx, row in enumerate(results, 1):
+        medal = medals[idx-1] if idx <= 3 else f"{idx}."
+        name_link = f"[{row['name']}](tg://user?id={row['_id']})"
+        msg += f"> {medal} {name_link} — *{row['score']}* pts\n"
+
+    # Add back button
+    chat_id = query.message.chat.id
+    back_keyboard = [
+        [
+            InlineKeyboardButton("📅 Today", callback_data=f"lb_today_{chat_id}"),
+            InlineKeyboardButton("🏆 Overall", callback_data=f"lb_overall_{chat_id}"),
+            InlineKeyboardButton("🌍 Global", callback_data="lb_global")
         ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await query.edit_message_text("Choose a leaderboard:", reply_markup=reply_markup)
+    ]
+    await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(back_keyboard))
 
 # --- Leaderboard Display Helper ---
 async def show_leaderboard(update_or_query, context, mode, chat_id, show_back=True):
