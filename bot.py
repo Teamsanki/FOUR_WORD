@@ -126,7 +126,55 @@ WORDS = [
     # Y
     'yard', 'yarn', 'yawn', 'yeah', 'year', 'yell', 'your', 'yoga',
     # Z
-    'zero', 'zinc', 'zone', 'zoom'
+    'zero', 'zinc', 'zone', 'zoom', 'okay', 'love', 'cool', 'yeah', 'nope', 'okay', 'sure', 'fine', 'oops', 'haha',
+    'bruh', 'dude', 'lmao', 'omfg', 'yess', 'nooo', 'wait', 'stop', 'yolo', 'done',
+    'nice', 'hmmn', 'help', 'soon', 'gone', 'late', 'meet', 'talk', 'ping', 'miss',
+    'babe', 'hold', 'call', 'chat', 'text', 'busy', 'back', 'left', 'seen', 'join',
+    'kick', 'cool', 'fire', 'drop', 'true', 'lame', 'vibe', 'hide', 'stay', 'walk',
+    'ride', 'camp', 'snap', 'post', 'send', 'show', 'list', 'work', 'rest', 'play',
+    'move', 'plan', 'skip', 'fail', 'pass', 'save', 'load', 'push', 'pull', 'pick',
+    'pack', 'open', 'shut', 'turn', 'roll', 'hate', 'exit', 'kick', 'join', 'edit',
+    'zoom', 'mute', 'like', 'love', 'okay', 'sure', 'cool', 'haha', 'nope', 'yeah',
+    'hype', 'mood', 'rofl', 'kbye', 'ughh', 'idfc', 'frfr', 'ttyl', 'g2g', 'bruh',
+    'yass', 'pfft', 'omfg', 'lmao', 'yolo', 'amir', 'fomo', 'bffs', 'noob', 'prol',
+    'defs', 'jkid', 'whut', 'hruu', 'heyy', 'hiya', 'plss', 'thnx', 'bbye', 'okie',
+    'gotu', 'gtfo', 'stop', 'goon', 'ugly', 'neat', 'fail', 'gold', 'cute', 'glow',
+    'grim', 'dead', 'live', 'wish', 'pray', 'heal', 'ouch', 'aaaa', 'ohno', 'dang',
+    'ewww', 'hype', 'mood', 'bros', 'slow', 'fast', 'high', 'solo', 'crew', 'team',
+    'lose', 'gain', 'hard', 'easy', 'flex', 'bent', 'hurt', 'calm', 'deep', 'open',
+    'lock', 'free', 'lost', 'good', 'dark', 'safe', 'evil', 'cool', 'wild', 'rain',
+    'wind', 'heat', 'cold', 'snow', 'mist', 'dusk', 'dawn', 'moon', 'star', 'cute',
+    'baby', 'girl', 'boii', 'lady', 'wife', 'huby', 'mate', 'best', 'fave', 'gang',
+    'bros', 'sisr', 'kids', 'bros', 'bros', 'home', 'room', 'door', 'hall', 'lamp',
+    'sofa', 'food', 'cook', 'bake', 'rice', 'cake', 'milk', 'fish', 'meal', 'dish',
+    'pick', 'drop', 'pour', 'boil', 'open', 'snap', 'push', 'grab', 'jump', 'rest',
+    'walk', 'ride', 'camp', 'trip', 'tour', 'stay', 'plan', 'date', 'hang', 'call',
+    'text', 'ring', 'vibe', 'chat', 'ping', 'note', 'post', 'send', 'save', 'view',
+    'like', 'read', 'skip', 'next', 'edit', 'play', 'stop', 'load', 'save', 'exit',
+    'fast', 'slow', 'jump', 'walk', 'drop', 'hide', 'seek', 'look', 'help', 'give',
+    'take', 'make', 'move', 'keep', 'hold', 'pull', 'push', 'quit', 'stay', 'rest',
+    'feel', 'wish', 'hate', 'love', 'need', 'want', 'miss', 'join', 'kick', 'mute',
+    'hype', 'boss', 'rich', 'broke', 'debt', 'cash', 'card', 'paid', 'send', 'loan',
+    'grab', 'cute', 'sexy', 'bold', 'kind', 'mean', 'nice', 'calm', 'lazy', 'cool',
+    'work', 'task', 'deal', 'meet', 'chat', 'talk', 'hold', 'plan', 'type', 'code',
+    'note', 'list', 'done', 'soon', 'time', 'date', 'year', 'week', 'hour', 'mins',
+    'mood', 'zone', 'area', 'land', 'side', 'city', 'road', 'lane', 'view', 'spot',
+    'park', 'shop', 'mall', 'home', 'stay', 'room', 'hall', 'seat', 'lamp', 'door',
+    'lock', 'open', 'pass', 'fail', 'test', 'exam', 'quiz', 'goal', 'task', 'plan',
+    'luck', 'hope', 'heal', 'feel', 'hurt', 'ouch', 'pain', 'calm', 'bore', 'hype',
+    'noob', 'proo', 'flex', 'game', 'play', 'lose', 'winr', 'fail', 'team', 'solo',
+    'duo', 'loot', 'drop', 'grab', 'kill', 'ping', 'camp', 'jump', 'move', 'zone',
+    'rush', 'mute', 'chat', 'rage', 'load', 'save', 'exit', 'next', 'edit', 'reel',
+    'like', 'post', 'feed', 'link', 'live', 'snap', 'view', 'read', 'send', 'chat',
+    'help', 'safe', 'cool', 'cute', 'bold', 'vibe', 'ride', 'zoom', 'wait', 'okay',
+    'same', 'news', 'info', 'data', 'pass', 'fail', 'join', 'left', 'back', 'soon',
+    'hope', 'pray', 'need', 'miss', 'gone', 'done', 'talk', 'meet', 'plan', 'call',
+    'cool', 'play', 'game', 'task', 'work', 'done', 'boss', 'safe', 'deal', 'chat',
+    'cash', 'loan', 'bill', 'paid', 'card', 'send', 'paid', 'bank', 'gpay', 'earn',
+    'wish', 'goal', 'task', 'list', 'note', 'idea', 'memo', 'soon', 'date', 'time',
+    'text', 'okay', 'kbye', 'nope', 'heyy', 'stop', 'love', 'pain', 'gift', 'ring',
+    'wife', 'babe', 'cute', 'girl', 'boii', 'date', 'kiss', 'hold', 'plan', 'ride',
+    'drop', 'call', 'chat', 'miss', 'back', 'soon', 'home', 'stay', 'feel', 'hope'
 ]
 
 # --- Format Feedback ---
@@ -176,7 +224,7 @@ async def new_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "hint": hint,
             "guesses": [],
             "start_time": datetime.utcnow(),
-            "max_guesses": 6  # Limit the number of guesses
+            "max_guesses": 20  # Limit the number of guesses
         }},
         upsert=True
     )
