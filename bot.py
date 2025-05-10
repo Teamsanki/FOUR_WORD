@@ -24,7 +24,7 @@ async def log_bot_added(update: ChatMemberUpdated, context: ContextTypes.DEFAULT
     pass
 
 # --- Bot Config ---
-TOKEN = "7762113593:AAHEhm8iuyf4W0VfnF0MkifOeW2zCOfrMVo"  # <-- Replace this with your bot token
+TOKEN = "8051196592:AAFAUOslCAPFszXfvjJB0nMVe7vRAUAene0"  # <-- Replace this with your bot token
 MONGO_URL = "mongodb+srv://TSANKI:TSANKI@cluster0.u2eg9e1.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0"  # <-- Replace this with your MongoDB connection string
 WELCOME_IMAGE_URL = "https://graph.org/file/c0e17724e66a68a2de3a6-5ff173af1d3498d9e7.jpg"  # <-- Replace with your welcome image
 LOGGER_GROUP_ID = -1002100433415
