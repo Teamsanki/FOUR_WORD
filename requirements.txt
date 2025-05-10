@@ -1,3 +1,4 @@
 python-telegram-bot==20.7
 pandas==2.2.1
-emoji==2.10.0  # If you want to handle emojis cleanly
+emoji==2.10.0
+pymongo
