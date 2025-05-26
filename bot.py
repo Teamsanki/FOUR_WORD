@@ -1,12 +1,14 @@
 # All imports come FIRST
+import os
 import random
 from datetime import datetime, timedelta
 from pymongo import MongoClient
+from dotenv import load_dotenv
 from telegram import (
     Update,
     InlineKeyboardButton,
     InlineKeyboardMarkup,
-    ChatMemberUpdated  # <-- Ye yahan hona chahiye
+    ChatMemberUpdated
 )
 from telegram.ext import (
     ApplicationBuilder,
@@ -14,21 +16,23 @@ from telegram.ext import (
     MessageHandler,
     CallbackQueryHandler,
     ContextTypes,
-    ChatMemberHandler,  # <-- Ye bhi chahiye agar tum ChatMemberUpdated use kar rahe ho
+    ChatMemberHandler,
     filters
 )
+
+# Load .env variables (for local development)
+load_dotenv()
 
 # Now your function definitions can begin
 async def log_bot_added(update: ChatMemberUpdated, context: ContextTypes.DEFAULT_TYPE):
     # your logic
     pass
 
-# --- Bot Config ---
-TOKEN = "YOUR_BOT_TOKEN"  # <-- Replace this with your bot token
-MONGO_URL = "YOUR_MONGO_DB"  # <-- Replace this with your MongoDB connection string
-WELCOME_IMAGE_URL = "YOUR_START_IMG_URL"  # <-- Replace with your welcome image
-LOGGER_GROUP_ID = YOUR_LOG_GROUP_ID #ENTER WITHOUT INVERTED COMMAS ("") DON'T USE THIS 
-
+# --- Bot Config (using environment variables) ---
+TOKEN = os.getenv("BOT_TOKEN")
+MONGO_URL = os.getenv("MONGO_URL")
+WELCOME_IMAGE_URL = os.getenv("WELCOME_IMAGE_URL")
+LOGGER_GROUP_ID = int(os.getenv("LOGGER_GROUP_ID"))  # Convert to int if using numeric IDs
 # --- MongoDB Setup ---
 client = MongoClient(MONGO_URL)
 db = client["wordseekbot"]
