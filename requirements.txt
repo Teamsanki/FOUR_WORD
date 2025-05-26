@@ -2,3 +2,4 @@ python-telegram-bot==20.7
 pandas==2.2.1
 emoji==2.10.0
 pymongo
+python-dotenv==1.0.1
