@@ -1,127 +1,127 @@
 1
-00:00:00,500 --> 00:00:04,000
+00:00:00,500 --> 00:00:03,800
 Ha... Yeah...
 
 2
-00:00:04,100 --> 00:00:08,000
+00:00:04,100 --> 00:00:07,500
 Aagya ni tera Sanki!
 
 3
-00:00:08,100 --> 00:00:13,000
+00:00:08,200 --> 00:00:12,800
 Ni tu surma ni paya raund bhare ne rifle de
 
 4
-00:00:13,100 --> 00:00:18,000
+00:00:13,100 --> 00:00:17,500
 Tere naina vichon maut wale fire nikle
 
 5
-00:00:18,100 --> 00:00:23,000
+00:00:17,800 --> 00:00:22,500
 Assi vairiyan de seene thand paun de ni adiye
 
 6
-00:00:23,100 --> 00:00:28,000
+00:00:22,800 --> 00:00:27,500
 Par tere agge jatt ne hathyar dhar te
 
 7
-00:00:28,100 --> 00:00:33,000
+00:00:27,800 --> 00:00:32,500
 Ho duniya nu dende assi maut de sunehe
 
 8
-00:00:33,100 --> 00:00:38,000
+00:00:32,800 --> 00:00:37,500
 Par dil haare baithe teri takni de utte
 
 9
-00:00:38,100 --> 00:00:43,000
+00:00:37,800 --> 00:00:42,500
 Sanu maut da ki darr assi maut de jawai
 
 10
-00:00:43,100 --> 00:00:48,000
+00:00:42,800 --> 00:00:47,500
 Par marde ne munde teri takni de utte
 
 11
-00:00:48,100 --> 00:00:53,000
+00:00:55,200 --> 00:01:00,000
 Hathi hathyar utto jatt da subha ni
 
 12
-00:00:53,100 --> 00:00:58,000
+00:01:00,200 --> 00:01:04,500
 Vairiyan de sahan vich ghulya gunaah ni
 
 13
-00:00:58,100 --> 00:01:03,000
+00:01:04,800 --> 00:01:09,200
 Loki kehnde Sanki ehda mattha tappeya
 
 14
-00:01:03,100 --> 00:01:08,000
+00:01:09,500 --> 00:01:13,800
 Par teri takni ne karta tabaah ni
 
 15
-00:01:08,100 --> 00:01:13,000
+00:01:14,200 --> 00:01:18,500
 Tere shehar di police piche dendi ae dikhayi
 
 16
-00:01:13,100 --> 00:01:18,000
+00:01:18,800 --> 00:01:23,200
 Sade pinda vich chale sadi apni dohai
 
 17
-00:01:18,100 --> 00:01:23,000
+00:01:23,500 --> 00:01:27,800
 Tu ta challiye ni dila utte raaj kardi
 
 18
-00:01:23,100 --> 00:01:28,000
+00:01:28,200 --> 00:01:32,500
 Assi dushman di hikk utte koke jadh te
 
 19
-00:01:28,100 --> 00:01:33,000
+00:01:32,800 --> 00:01:37,200
 Ho duniya nu dende assi maut de sunehe
 
 20
-00:01:33,100 --> 00:01:38,000
+00:01:37,500 --> 00:01:42,200
 Par dil haare baithe teri takni de utte
 
 21
-00:01:38,100 --> 00:01:43,100
+00:01:51,500 --> 00:01:56,000
 Likhda ae sach tahi duniya ae machdi
 
 22
-00:01:43,200 --> 00:01:48,100
+00:01:56,200 --> 00:02:00,500
 Sanki di gall tere dil vich vajjdi
 
 23
-00:01:48,200 --> 00:01:53,100
+00:02:00,800 --> 00:02:05,200
 Raula rappa paya assi asle de zor te
 
 24
-00:01:53,200 --> 00:01:58,100
+00:02:05,500 --> 00:02:10,000
 Par kundi adi jattiye ni tere mod te
 
 25
-00:01:58,200 --> 00:02:03,100
+00:02:10,200 --> 00:02:14,800
 Sadi hikk vich zor sadi kalam ch jaan
 
 26
-00:02:03,200 --> 00:02:08,100
+00:02:15,200 --> 00:02:19,500
 Tere piche munda hoya fire kurban
 
 27
-00:02:08,200 --> 00:02:13,100
+00:02:19,800 --> 00:02:24,200
 Vairiyan nu ditta assi maut da swad ni
 
 28
-00:02:13,200 --> 00:02:18,100
+00:02:24,500 --> 00:02:29,000
 Par teri takni ne rakheya abaad ni
 
 29
-00:02:18,200 --> 00:02:23,000
+00:02:29,200 --> 00:02:32,500
 Gurdaspur diya galla ni
 
 30
-00:02:23,100 --> 00:02:26,000
+00:02:32,800 --> 00:02:35,500
 Te Sanki de bol
 
 31
-00:02:26,100 --> 00:02:29,000
+00:02:35,800 --> 00:02:38,500
 Siddha hikk vich vajjde aa
 
 32
-00:02:29,100 --> 00:02:35,000
+00:02:38,800 --> 00:02:44,000
 Teri takni ni jattiye... Tera Sanki!
