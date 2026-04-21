@@ -346,9 +346,9 @@ async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat = update.effective_chat
     user = update.effective_user
     keyboard = [
-        [InlineKeyboardButton("➕ Add Me In Your Group ➕", url="https://t.me/SANKIWORDSEEKBOT?startgroup=true")],
+        [InlineKeyboardButton("➕ Add Me In Your Group ➕", url="https://t.me/TSFOURWORDBOT?startgroup=true")],
         [InlineKeyboardButton("👨‍💻 Developer", url="https://t.me/ll_SANKI_II"),
-         InlineKeyboardButton("📢 Support Channel", url="https://t.me/SANKINETWORK")],
+         InlineKeyboardButton("📢 Support Channel", url="https://t.me/TEAMSANKI")],
         [InlineKeyboardButton("👻 Four Word Group", url="https://t.me/Fourwordgusser")]
     ]
     markup = InlineKeyboardMarkup(keyboard)
@@ -363,7 +363,7 @@ async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "🌟 Use /daily for today's challenge\n"
         "💰 Use /stats to see your progress\n"
         "👑 Owner: @ll_SANKI_II\n"
-        "📢 Support: @SANKINETWORK"
+        "📢 Support: @TEAMSANKI"
     )
     await context.bot.send_photo(chat_id=chat.id, photo=WELCOME_IMAGE_URL, caption=caption, parse_mode="Markdown", reply_markup=markup)
     # Logging
@@ -466,7 +466,7 @@ async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
         is_daily = (mode == "daily")
         # --- ADD REACTION TO USER'S CORRECT GUESS MESSAGE ---
         try:
-            await update.message.react(emoji="🎆")  # Party firework reaction
+            await update.message.react(emoji="🎉")  # Party firework reaction
         except Exception as e:
             print(f"Reaction failed: {e}")  # Fallback if reaction not supported
         # Update scores (points)
