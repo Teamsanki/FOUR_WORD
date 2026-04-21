@@ -522,8 +522,12 @@ async def hint_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     correct = game["word"]
     guesses = game.get("guesses", [])
-    # Find a letter not yet correctly placed and not fully guessed
-    unrevealed_positions = [i for i, ch in enumerate(correct) if ch not in [g[i] for g in guesses] if len(guesses) > 0 else True]
+    # Find a letter not yet correctly placed
+    if guesses:
+        unrevealed_positions = [i for i, ch in enumerate(correct) if ch not in [g[i] for g in guesses]]
+    else:
+        unrevealed_positions = list(range(4))
+    
     if not unrevealed_positions:
         await update.message.reply_text("No new hint available! Keep guessing.")
         return
