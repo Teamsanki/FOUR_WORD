@@ -40,9 +40,8 @@ daily_col = db["daily_word"]
 stats_col = db["user_stats"]
 p2p_col = db["p2p_challenges"]
 group_games_col = db["group_games"]
-clans_col = db["clans"]
-clan_points_col = db["clan_points"]
 streak_freezes_col = db["streak_freezes"]
+p2p_queue_col = db["p2p_queue"]  # queue for random matchmaking
 
 # ---------- WORD LOADER FROM LOCAL JSON FILES ----------
 def load_words_from_json(length: int):
@@ -113,8 +112,7 @@ async def update_user_stats(user_id, name, won, daily=False, word_len=4):
             "total_games": 0, "total_wins": 0,
             "current_streak": 0, "best_streak": 0,
             "total_coins": 0, "last_daily": None,
-            "wins_4": 0, "wins_5": 0, "wins_6": 0,
-            "clan_id": None
+            "wins_4": 0, "wins_5": 0, "wins_6": 0
         }
     stats["total_games"] += 1
     if won:
@@ -141,138 +139,7 @@ async def update_user_stats(user_id, name, won, daily=False, word_len=4):
                 stats["best_streak"] = stats["current_streak"]
         stats["name"] = name
     stats_col.update_one({"user_id": user_id}, {"$set": stats}, upsert=True)
-    # Add clan point for playing a game
-    if stats.get("clan_id"):
-        today = datetime.utcnow().date().isoformat()
-        clan_points_col.update_one(
-            {"clan_id": stats["clan_id"], "user_id": user_id, "date": today},
-            {"$inc": {"points": 1}, "$set": {"name": name}},
-            upsert=True
-        )
     return stats
-
-# ---------- CLAN COMMANDS ----------
-async def clan_create(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    args = context.args
-    if not args:
-        await update.message.reply_text("Usage: /clan create <name>")
-        return
-    name = " ".join(args)
-    stats = stats_col.find_one({"user_id": user.id})
-    if stats and stats.get("clan_id"):
-        await update.message.reply_text("You are already in a clan. Leave first with /clan leave.")
-        return
-    if clans_col.find_one({"name": name}):
-        await update.message.reply_text("Clan name already taken.")
-        return
-    invite_code = ''.join(random.choices('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789', k=6))
-    clan = {
-        "name": name,
-        "owner_id": user.id,
-        "created_at": datetime.utcnow(),
-        "invite_code": invite_code,
-        "total_points": 0
-    }
-    clans_col.insert_one(clan)
-    stats_col.update_one({"user_id": user.id}, {"$set": {"clan_id": clan["_id"]}})
-    await update.message.reply_text(f"✅ Clan '{name}' created! Invite code: `{invite_code}`", parse_mode="Markdown")
-
-async def clan_join(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    args = context.args
-    if not args:
-        await update.message.reply_text("Usage: /clan join <invite_code>")
-        return
-    code = args[0]
-    clan = clans_col.find_one({"invite_code": code})
-    if not clan:
-        await update.message.reply_text("Invalid invite code.")
-        return
-    stats = stats_col.find_one({"user_id": user.id})
-    if stats and stats.get("clan_id"):
-        await update.message.reply_text("You are already in a clan. Leave first with /clan leave.")
-        return
-    stats_col.update_one({"user_id": user.id}, {"$set": {"clan_id": clan["_id"]}})
-    await update.message.reply_text(f"🎉 You joined clan '{clan['name']}'!")
-
-async def clan_leave(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    stats = stats_col.find_one({"user_id": user.id})
-    if not stats or not stats.get("clan_id"):
-        await update.message.reply_text("You are not in any clan.")
-        return
-    clan = clans_col.find_one({"_id": stats["clan_id"]})
-    if clan and clan["owner_id"] == user.id:
-        await update.message.reply_text("You are the owner. Delete clan with /clan delete or transfer ownership.")
-        return
-    stats_col.update_one({"user_id": user.id}, {"$set": {"clan_id": None}})
-    await update.message.reply_text("You left the clan.")
-
-async def clan_kick(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    args = context.args
-    if not args:
-        await update.message.reply_text("Usage: /clan kick <user_id>")
-        return
-    try:
-        target_id = int(args[0])
-    except:
-        await update.message.reply_text("Invalid user ID.")
-        return
-    stats = stats_col.find_one({"user_id": user.id})
-    if not stats or not stats.get("clan_id"):
-        await update.message.reply_text("You are not in a clan.")
-        return
-    clan = clans_col.find_one({"_id": stats["clan_id"]})
-    if not clan or clan["owner_id"] != user.id:
-        await update.message.reply_text("Only clan owner can kick members.")
-        return
-    target_stats = stats_col.find_one({"user_id": target_id})
-    if not target_stats or target_stats.get("clan_id") != clan["_id"]:
-        await update.message.reply_text("User not in your clan.")
-        return
-    stats_col.update_one({"user_id": target_id}, {"$set": {"clan_id": None}})
-    await update.message.reply_text(f"User {target_id} kicked from clan.")
-
-async def clan_info(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    stats = stats_col.find_one({"user_id": user.id})
-    if not stats or not stats.get("clan_id"):
-        await update.message.reply_text("You are not in any clan.")
-        return
-    clan = clans_col.find_one({"_id": stats["clan_id"]})
-    if not clan:
-        await update.message.reply_text("Clan not found.")
-        return
-    members = stats_col.find({"clan_id": clan["_id"]})
-    member_list = []
-    async for m in members:
-        member_list.append(f"• {m.get('name', 'Unknown')} (ID: {m['user_id']})")
-    members_text = "\n".join(member_list[:20]) + ("\n..." if len(member_list)>20 else "")
-    await update.message.reply_text(
-        f"🏰 *Clan: {clan['name']}*\n"
-        f"👑 Owner: `{clan['owner_id']}`\n"
-        f"🔑 Invite Code: `{clan['invite_code']}`\n"
-        f"📊 Total Points: {clan.get('total_points',0)}\n"
-        f"👥 Members ({len(member_list)}):\n{members_text}",
-        parse_mode="Markdown"
-    )
-
-async def clan_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.effective_user
-    stats = stats_col.find_one({"user_id": user.id})
-    if not stats or not stats.get("clan_id"):
-        await update.message.reply_text("You are not in a clan.")
-        return
-    clan = clans_col.find_one({"_id": stats["clan_id"]})
-    if not clan or clan["owner_id"] != user.id:
-        await update.message.reply_text("Only clan owner can delete the clan.")
-        return
-    stats_col.update_many({"clan_id": clan["_id"]}, {"$set": {"clan_id": None}})
-    clans_col.delete_one({"_id": clan["_id"]})
-    clan_points_col.delete_many({"clan_id": clan["_id"]})
-    await update.message.reply_text("Clan deleted.")
 
 # ---------- STREAK FREEZE ----------
 async def streakfreeze_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -289,14 +156,13 @@ async def streakfreeze_command(update: Update, context: ContextTypes.DEFAULT_TYP
     streak_freezes_col.insert_one({"user_id": user.id, "used": False, "purchased_at": datetime.utcnow()})
     await update.message.reply_text("✅ Streak freeze purchased! Protects your daily streak if you miss a day.")
 
-# ---------- LEADERBOARD WITH CLAN RANK ----------
+# ---------- LEADERBOARD ----------
 async def leaderboard(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     keyboard = [
         [InlineKeyboardButton("📅 Today", callback_data=f"lb_today_{chat_id}"),
          InlineKeyboardButton("🏆 Overall", callback_data=f"lb_overall_{chat_id}"),
-         InlineKeyboardButton("🌍 Global", callback_data="lb_global")],
-        [InlineKeyboardButton("🏰 Clan Rank", callback_data="lb_clan_menu")]
+         InlineKeyboardButton("🌍 Global", callback_data="lb_global")]
     ]
     await update.message.reply_text("Choose leaderboard:", reply_markup=InlineKeyboardMarkup(keyboard))
 
@@ -311,43 +177,16 @@ async def leaderboard_callback(update: Update, context: ContextTypes.DEFAULT_TYP
                     {"$group": {"_id": "$user_id", "score": {"$max": "$score"}, "name": {"$first": "$name"}}},
                     {"$sort": {"score": -1}}, {"$limit": 10}]
         results = list(scores_col.aggregate(pipeline))
-        title = "📅 Today's User Leaderboard"
-        await show_leaderboard_results(query, results, title)
+        title = "📅 Today's Leaderboard"
     elif data.startswith("lb_overall_"):
         chat_id = int(data.split("_")[2])
         results = list(scores_col.find({"chat_id": chat_id}).sort("score", -1).limit(10))
-        title = "🏆 Overall User Leaderboard"
-        await show_leaderboard_results(query, results, title)
+        title = "🏆 Overall Leaderboard"
     elif data == "lb_global":
         results = list(scores_col.find({"chat_id": "global"}).sort("score", -1).limit(10))
-        title = "🌍 Global User Leaderboard"
-        await show_leaderboard_results(query, results, title)
-    elif data == "lb_clan_menu":
-        keyboard = [
-            [InlineKeyboardButton("📅 Today", callback_data="lb_clan_today"),
-             InlineKeyboardButton("🏆 Overall", callback_data="lb_clan_overall")],
-            [InlineKeyboardButton("🔙 Back", callback_data="lb_back")]
-        ]
-        await query.edit_message_text("Clan Leaderboard:", reply_markup=InlineKeyboardMarkup(keyboard))
-    elif data == "lb_clan_today":
-        today = datetime.utcnow().date().isoformat()
-        pipeline = [
-            {"$match": {"date": today}},
-            {"$group": {"_id": "$clan_id", "points_today": {"$sum": "$points"}}},
-            {"$sort": {"points_today": -1}},
-            {"$limit": 10}
-        ]
-        results = list(clan_points_col.aggregate(pipeline))
-        title = "📅 Today's Clan Leaderboard"
-        await show_clan_leaderboard(query, results, title)
-    elif data == "lb_clan_overall":
-        results = list(clans_col.find().sort("total_points", -1).limit(10))
-        title = "🏆 Overall Clan Leaderboard"
-        await show_clan_leaderboard(query, results, title)
-    elif data == "lb_back":
-        await leaderboard_callback_back(query)
-
-async def show_leaderboard_results(query, results, title):
+        title = "🌍 Global Leaderboard"
+    else:
+        return
     if not results:
         await query.edit_message_text("No scores found.")
         return
@@ -359,40 +198,8 @@ async def show_leaderboard_results(query, results, title):
         uid = row["_id"]
         score = row["score"]
         msg += f"➤ `{medal}` [{name}](tg://user?id={uid}) — *{score}* pts\n"
-    keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="lb_back")]]
+    keyboard = [[InlineKeyboardButton("🔙 Back", callback_data=f"lb_back_{query.message.chat.id}")]]
     await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def show_clan_leaderboard(query, results, title):
-    if not results:
-        await query.edit_message_text("No clan data found.")
-        return
-    msg = f"**{title}**\n\n"
-    medals = ["🥇", "🥈", "🥉"]
-    for idx, row in enumerate(results, 1):
-        medal = medals[idx-1] if idx<=3 else f"{idx}."
-        if "_id" in row and isinstance(row["_id"], int):
-            clan = clans_col.find_one({"_id": row["_id"]})
-            points = row.get("points_today", row.get("total_points", 0))
-        else:
-            clan = row
-            points = clan.get("total_points", 0)
-        if clan:
-            name = clan["name"]
-            msg += f"➤ `{medal}` *{name}* — *{points}* pts\n"
-        else:
-            msg += f"➤ `{medal}` *Deleted Clan* — *{points}* pts\n"
-    keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="lb_clan_menu")]]
-    await query.edit_message_text(msg, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def leaderboard_callback_back(query):
-    chat_id = query.message.chat.id
-    keyboard = [
-        [InlineKeyboardButton("📅 Today", callback_data=f"lb_today_{chat_id}"),
-         InlineKeyboardButton("🏆 Overall", callback_data=f"lb_overall_{chat_id}"),
-         InlineKeyboardButton("🌍 Global", callback_data="lb_global")],
-        [InlineKeyboardButton("🏰 Clan Rank", callback_data="lb_clan_menu")]
-    ]
-    await query.edit_message_text("Choose leaderboard:", reply_markup=InlineKeyboardMarkup(keyboard))
 
 # ---------- BOT COMMANDS (CLASSIC) ----------
 async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -408,16 +215,16 @@ async def send_welcome(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "✨ *Welcome to Four Word Game* ✨\n\n"
         "🔤 Guess 4, 5, or 6 letter words!\n"
         "🎯 Color feedback: 🟩🟨🟥\n"
-        "🏆 Leaderboards (User & Clan)\n"
+        "🏆 Leaderboards (Today / Overall / Global)\n"
         "🎁 Coins, hints, daily challenge, streaks\n"
-        "🛡️ /streakfreeze - protect your daily streak\n"
-        "🏰 /clan create/join/leave/kick/info/delete - Clan system\n\n"
+        "🛡️ /streakfreeze - protect your daily streak\n\n"
         "💥 /new 4|5|6 - start a game\n"
         "🌟 /daily - daily challenge\n"
         "📊 /stats - your progress\n"
         "🃏 /hint - reveal a letter (3 per game, 10s cooldown)\n"
-        "👥 /challenge @user - P2P challenge\n"
-        "👥 /challenge 4|5|6 - group multiplayer\n"
+        "🤝 /challenge - random 1v1 matchmaking (DM)\n"
+        "👥 /challenge 4|5|6 - create group multiplayer game\n"
+        "❌ /cancel - leave matchmaking queue\n"
         "❓ /help - full guide"
     )
     await context.bot.send_photo(chat_id=chat.id, photo=WELCOME_IMAGE_URL, caption=caption, parse_mode="Markdown", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -438,16 +245,16 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/hint – reveal a letter (cost 5 coins, 3 per game, 10s cooldown)\n"
         "/stats – your stats (games, wins, streak, coins)\n"
         "/profile – your detailed profile with photo\n"
-        "/leaderboard – top players and clans\n"
+        "/leaderboard – top players (Today/Overall/Global)\n"
         "/streakfreeze – buy streak freeze (50 coins)\n"
-        "/clan `create|join|leave|kick|info|delete` – clan management\n"
-        "/challenge `@user` – challenge a friend (P2P)\n"
-        "/challenge `4|5|6` – create group multiplayer game\n"
+        "/challenge – join random 1v1 PvP queue (DM)\n"
+        "/challenge `4|5|6` – create group multiplayer game (group only)\n"
+        "/cancel – leave the PvP queue\n"
         "/join `<gameid>` – join a group game\n"
         "/help – this message\n\n"
         "*Coins:* earned by winning. Use /hint.\n"
         "*Streak:* daily challenge consecutive wins.\n"
-        "*Clan points:* each game you play gives 1 point to your clan daily."
+        "*PvP:* Random opponent, first to guess wins. 10 seconds per turn."
     )
     await update.message.reply_text(help_text, parse_mode="Markdown")
 
@@ -484,11 +291,58 @@ async def stop_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    game = games_col.find_one({"chat_id": chat_id})
-    if not game:
-        return
     user = update.effective_user
     text = update.message.text.lower().strip()
+    # Check for P2P game first (if in DM)
+    game = None
+    if update.effective_chat.type == "private":
+        game = games_col.find_one({"players": user.id, "game_type": "p2p"})
+    if not game:
+        game = games_col.find_one({"chat_id": chat_id})
+    if not game:
+        return
+
+    # P2P mode
+    if game.get("game_type") == "p2p":
+        if game.get("current_turn") != user.id:
+            await update.message.reply_text("It's not your turn! Wait for opponent.")
+            return
+        # Cancel timer for this user
+        if user.id in p2p_timers:
+            p2p_timers[user.id].cancel()
+            del p2p_timers[user.id]
+        word_len = 4
+        if not text.isalpha() or len(text) != word_len:
+            await update.message.reply_text(f"Please enter a {word_len}-letter word.")
+            return
+        if text not in WORD_LISTS[word_len]:
+            await update.message.reply_text("This word is not in my dictionary.")
+            return
+        correct = game["word"]
+        if text == correct:
+            # Win
+            await update.message.reply_text(f"🎉 Correct! You guessed the word `{correct}`. You win the match!", parse_mode="Markdown")
+            opponent = [p for p in game["players"] if p != user.id][0]
+            await context.bot.send_message(opponent, f"😞 {user.first_name} guessed the word `{correct}`. You lose.", parse_mode="Markdown")
+            games_col.delete_one({"_id": game["_id"]})
+            # Offer rematch
+            challenge_id = game["chat_id"].replace("p2p_", "")
+            keyboard = InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔁 Rematch", callback_data=f"p2p_rematch_{challenge_id}")]
+            ])
+            await update.message.reply_text("Want a rematch?", reply_markup=keyboard)
+            await context.bot.send_message(opponent, "Want a rematch?", reply_markup=keyboard)
+            return
+        else:
+            feedback = format_feedback(text, correct)
+            await update.message.reply_text(f"{feedback} `{text}`\n❌ Wrong guess! Now opponent's turn.", parse_mode="Markdown")
+            opponent = [p for p in game["players"] if p != user.id][0]
+            games_col.update_one({"_id": game["_id"]}, {"$set": {"current_turn": opponent}})
+            await context.bot.send_message(opponent, "Your turn! Guess a 4-letter word. (You have 10 seconds)")
+            await start_p2p_timer(context, opponent, game["chat_id"].replace("p2p_", ""))
+        return
+
+    # Classic or Daily game
     word_len = game["length"]
     if not text.isalpha() or len(text) != word_len:
         await update.message.reply_text(f"Please enter a {word_len}-letter word.")
@@ -647,121 +501,143 @@ async def daily_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     })
     await update.message.reply_text("🌟 *Daily Challenge started!* 6 guesses only. Bonus points & coins!", parse_mode="Markdown")
 
-# ---------- P2P CHALLENGE (with timer and rematch) ----------
-# We'll store active timers in a dict to cancel them
+# ---------- P2P RANDOM MATCHMAKING (QUEUE) ----------
 p2p_timers = {}
 
-async def challenge_p2p(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update.message.reply_to_message and len(context.args)==0:
-        await update.message.reply_text("Usage: /challenge @username")
-        return
-    target = None
-    if update.message.reply_to_message:
-        target = update.message.reply_to_message.from_user
-    elif context.args:
-        username = context.args[0].lstrip('@')
-        try:
-            target = await context.bot.get_chat(username)
-            target = target.user if hasattr(target, 'user') else target
-        except:
-            await update.message.reply_text("User not found.")
-            return
-    if not target or target.is_bot:
-        await update.message.reply_text("You can't challenge a bot.")
-        return
-    if target.id == update.effective_user.id:
-        await update.message.reply_text("You can't challenge yourself.")
-        return
-    challenge_id = f"{update.effective_user.id}_{target.id}_{int(datetime.utcnow().timestamp())}"
-    p2p_col.insert_one({
-        "challenge_id": challenge_id,
-        "from_id": update.effective_user.id,
-        "to_id": target.id,
-        "status": "pending",
-        "from_name": update.effective_user.first_name,
-        "to_name": target.first_name,
-        "created_at": datetime.utcnow()
-    })
-    keyboard = InlineKeyboardMarkup([
-        [InlineKeyboardButton("✅ Accept", callback_data=f"p2p_accept_{challenge_id}"),
-         InlineKeyboardButton("❌ Decline", callback_data=f"p2p_decline_{challenge_id}")]
-    ])
-    await context.bot.send_message(chat_id=target.id, text=f"{update.effective_user.first_name} challenged you to a word game! 4-letter word, first to guess wins. Accept?", reply_markup=keyboard)
-    await update.message.reply_text("Challenge sent!")
+async def cancel_queue(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user
+    result = p2p_queue_col.delete_one({"user_id": user.id})
+    if result.deleted_count:
+        await update.message.reply_text("❌ You have been removed from the matchmaking queue.")
+    else:
+        await update.message.reply_text("You are not in the queue.")
 
-async def p2p_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    data = query.data
-    if data.startswith("p2p_accept_"):
-        challenge_id = data.split("_")[2]
-        challenge = p2p_col.find_one({"challenge_id": challenge_id})
-        if not challenge or challenge["status"] != "pending":
-            await query.edit_message_text("Challenge expired or already handled.")
+async def challenge_random(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /challenge in DM: add to queue and match if possible."""
+    user = update.effective_user
+    chat = update.effective_chat
+    if chat.type != "private":
+        # If in group, we need to allow group challenge with argument
+        # But since this handler runs only when no args, we should check args length
+        # Actually in main we are using the same command for both, so we need to differentiate.
+        # The main logic will call this function only when no args and in private? Let's handle inside.
+        if context.args and context.args[0] in ['4','5','6']:
+            # group challenge will be handled by separate handler
             return
-        p2p_col.update_one({"challenge_id": challenge_id}, {"$set": {"status": "accepted"}})
+        await update.message.reply_text("For group multiplayer, use /challenge 4|5|6")
+        return
+
+    # Check if user already has an active P2P game
+    active_game = games_col.find_one({"players": user.id, "game_type": "p2p"})
+    if active_game:
+        await update.message.reply_text("You already have an active PvP game. Finish it first.")
+        return
+
+    # Check if user already in queue
+    existing = p2p_queue_col.find_one({"user_id": user.id})
+    if existing:
+        await update.message.reply_text("You are already in the queue. Waiting for opponent...")
+        return
+
+    # Add to queue
+    p2p_queue_col.insert_one({"user_id": user.id, "name": user.first_name, "joined_at": datetime.utcnow()})
+    await update.message.reply_text("✅ You have been added to the matchmaking queue. Waiting for an opponent...")
+
+    # Try to match
+    await try_match(context)
+
+async def try_match(context):
+    """Check queue and match two users if available."""
+    queue = list(p2p_queue_col.find().sort("joined_at", 1))
+    if len(queue) >= 2:
+        user1 = queue[0]
+        user2 = queue[1]
+        # Remove both from queue
+        p2p_queue_col.delete_many({"user_id": {"$in": [user1["user_id"], user2["user_id"]]}})
+        # Create challenge
+        challenge_id = f"{user1['user_id']}_{user2['user_id']}_{int(datetime.utcnow().timestamp())}"
+        p2p_col.insert_one({
+            "challenge_id": challenge_id,
+            "from_id": user1["user_id"],
+            "to_id": user2["user_id"],
+            "status": "accepted",  # auto-accepted
+            "from_name": user1["name"],
+            "to_name": user2["name"],
+            "created_at": datetime.utcnow()
+        })
         word = random.choice(WORDS_4)
         game_data = {
             "chat_id": f"p2p_{challenge_id}",
-            "players": [challenge["from_id"], challenge["to_id"]],
+            "players": [user1["user_id"], user2["user_id"]],
             "word": word,
             "guesses": {},
-            "current_turn": challenge["from_id"],
+            "current_turn": user1["user_id"],
             "start_time": datetime.utcnow(),
             "game_type": "p2p"
         }
         games_col.insert_one(game_data)
-        await context.bot.send_message(chat_id=challenge["from_id"], text=f"Challenge accepted by {challenge['to_name']}! You go first. Guess a 4-letter word. (You have 10 seconds)")
-        await context.bot.send_message(chat_id=challenge["to_id"], text="You accepted the challenge. Wait for your turn.")
-        await query.edit_message_text("Challenge accepted! Game started in DMs.")
+        # Notify both players
+        await context.bot.send_message(chat_id=user1["user_id"], text=f"🎮 Match found! You are playing against {user2['name']}. You go first. Guess a 4-letter word. (10 seconds per turn)")
+        await context.bot.send_message(chat_id=user2["user_id"], text=f"🎮 Match found! You are playing against {user1['name']}. Wait for your turn.")
         # Start timer for first player
-        await start_p2p_timer(context, challenge["from_id"], challenge_id)
-    elif data.startswith("p2p_decline_"):
-        challenge_id = data.split("_")[2]
-        p2p_col.update_one({"challenge_id": challenge_id}, {"$set": {"status": "declined"}})
-        await query.edit_message_text("You declined the challenge.")
-        ch = p2p_col.find_one({"challenge_id": challenge_id})
-        if ch:
-            await context.bot.send_message(chat_id=ch["from_id"], text=f"{ch['to_name']} declined your challenge.")
-    elif data.startswith("p2p_rematch_"):
-        # Rematch button: create new challenge with same players
+        await start_p2p_timer(context, user1["user_id"], challenge_id)
+
+# ---------- P2P CALLBACKS (rematch) ----------
+async def p2p_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    if data.startswith("p2p_rematch_"):
         challenge_id = data.split("_")[2]
         original = p2p_col.find_one({"challenge_id": challenge_id})
         if not original:
             await query.edit_message_text("Original challenge not found.")
             return
-        new_challenge_id = f"{original['from_id']}_{original['to_id']}_{int(datetime.utcnow().timestamp())}"
+        # Check if both players still exist and not in another game
+        p1 = original["from_id"]
+        p2 = original["to_id"]
+        active1 = games_col.find_one({"players": p1, "game_type": "p2p"})
+        active2 = games_col.find_one({"players": p2, "game_type": "p2p"})
+        if active1 or active2:
+            await query.edit_message_text("One of the players is already in another game. Rematch cancelled.")
+            return
+        new_challenge_id = f"{p1}_{p2}_{int(datetime.utcnow().timestamp())}"
         p2p_col.insert_one({
             "challenge_id": new_challenge_id,
-            "from_id": original["from_id"],
-            "to_id": original["to_id"],
-            "status": "pending",
+            "from_id": p1,
+            "to_id": p2,
+            "status": "accepted",
             "from_name": original["from_name"],
             "to_name": original["to_name"],
             "created_at": datetime.utcnow()
         })
-        keyboard = InlineKeyboardMarkup([
-            [InlineKeyboardButton("✅ Accept", callback_data=f"p2p_accept_{new_challenge_id}"),
-             InlineKeyboardButton("❌ Decline", callback_data=f"p2p_decline_{new_challenge_id}")]
-        ])
-        await context.bot.send_message(chat_id=original["to_id"], text=f"{original['from_name']} wants a rematch! Accept?", reply_markup=keyboard)
-        await query.edit_message_text("Rematch request sent!")
+        word = random.choice(WORDS_4)
+        game_data = {
+            "chat_id": f"p2p_{new_challenge_id}",
+            "players": [p1, p2],
+            "word": word,
+            "guesses": {},
+            "current_turn": p1,
+            "start_time": datetime.utcnow(),
+            "game_type": "p2p"
+        }
+        games_col.insert_one(game_data)
+        await context.bot.send_message(chat_id=p1, text=f"🔁 Rematch started! You go first. Guess a 4-letter word. (10 seconds)")
+        await context.bot.send_message(chat_id=p2, text=f"🔁 Rematch started! Wait for your turn.")
+        await start_p2p_timer(context, p1, new_challenge_id)
+        await query.edit_message_text("Rematch accepted! Game started.")
 
 async def start_p2p_timer(context, user_id, challenge_id):
-    # Cancel existing timer for this user if any
     if user_id in p2p_timers:
         p2p_timers[user_id].cancel()
     async def timeout():
         await asyncio.sleep(10)
-        # Check if game still active and it's still user's turn
         game = games_col.find_one({"chat_id": f"p2p_{challenge_id}"})
         if game and game.get("current_turn") == user_id:
-            # Forfeit
             opponent = [p for p in game["players"] if p != user_id][0]
             await context.bot.send_message(user_id, "⏰ Time's up! You took too long. You lose the match.")
             await context.bot.send_message(opponent, "🎉 Your opponent ran out of time! You win!")
             games_col.delete_one({"_id": game["_id"]})
-            # Notify rematch option
             keyboard = InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔁 Rematch", callback_data=f"p2p_rematch_{challenge_id}")]
             ])
@@ -772,137 +648,82 @@ async def start_p2p_timer(context, user_id, challenge_id):
     task = asyncio.create_task(timeout())
     p2p_timers[user_id] = task
 
-# Override handle_guess for P2P mode
-# We'll add logic inside handle_guess to check game_type
-# But handle_guess already handles classic and daily. We'll extend it.
-# For brevity, we'll integrate P2P handling into the existing handle_guess.
-# However, handle_guess currently only checks games_col with chat_id = update.effective_chat.id.
-# For P2P, the chat_id is a string like "p2p_...". So we need to also check for such games.
-# I'll modify handle_guess at the beginning to also look for P2P game if the chat is a DM.
-# Since the code is already long, I'll include the modified handle_guess that handles P2P.
-# Let's replace the handle_guess function with an extended version.
-
-# ---------- UPDATED HANDLE_GUESS FOR P2P AND TIMER ----------
-async def handle_guess(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# ---------- GROUP MULTIPLAYER ----------
+async def challenge_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    args = context.args
+    if not args or args[0] not in ['4','5','6']:
+        await update.message.reply_text("Usage: /challenge 4|5|6 to create group game")
+        return
+    length = int(args[0])
     chat_id = update.effective_chat.id
-    user = update.effective_user
-    text = update.message.text.lower().strip()
-    # Check for P2P game first (if in DM)
-    game = None
-    if update.effective_chat.type == "private":
-        # Look for any P2P game where this user is a player
-        game = games_col.find_one({"players": user.id, "game_type": "p2p"})
-    if not game:
-        game = games_col.find_one({"chat_id": chat_id})
-    if not game:
+    if update.effective_chat.type not in ["group", "supergroup"]:
+        await update.message.reply_text("This command only works in groups.")
         return
-    if game.get("game_type") == "p2p":
-        # P2P turn-based with timer
-        if game.get("current_turn") != user.id:
-            await update.message.reply_text("It's not your turn yet!")
-            return
-        # Cancel timer for this user
-        if user.id in p2p_timers:
-            p2p_timers[user.id].cancel()
-            del p2p_timers[user.id]
-        word_len = 4  # P2P always 4-letter
-        if not text.isalpha() or len(text) != word_len:
-            await update.message.reply_text(f"Please enter a {word_len}-letter word.")
-            return
-        if text not in WORD_LISTS[word_len]:
-            await update.message.reply_text("This word is not in my dictionary.")
-            return
-        correct = game["word"]
-        if text == correct:
-            # Win
-            await update.message.reply_text(f"🎉 Correct! You guessed the word `{correct}`. You win the match!", parse_mode="Markdown")
-            opponent = [p for p in game["players"] if p != user.id][0]
-            await context.bot.send_message(opponent, f"😞 {user.first_name} guessed the word `{correct}`. You lose.", parse_mode="Markdown")
-            games_col.delete_one({"_id": game["_id"]})
-            # Offer rematch to both
-            challenge_id = game["chat_id"].replace("p2p_", "")
-            keyboard = InlineKeyboardMarkup([
-                [InlineKeyboardButton("🔁 Rematch", callback_data=f"p2p_rematch_{challenge_id}")]
-            ])
-            await update.message.reply_text("Want a rematch?", reply_markup=keyboard)
-            await context.bot.send_message(opponent, "Want a rematch?", reply_markup=keyboard)
-            return
-        else:
-            # Wrong guess
-            feedback = format_feedback(text, correct)
-            await update.message.reply_text(f"{feedback} `{text}`\n❌ Wrong guess! Now opponent's turn.", parse_mode="Markdown")
-            # Switch turn
-            opponent = [p for p in game["players"] if p != user.id][0]
-            games_col.update_one({"_id": game["_id"]}, {"$set": {"current_turn": opponent}})
-            await context.bot.send_message(opponent, "Your turn! Guess a 4-letter word. (You have 10 seconds)")
-            # Start timer for opponent
-            await start_p2p_timer(context, opponent, game["chat_id"].replace("p2p_", ""))
-        return
-    # Otherwise, classic or daily game (existing logic)
-    # ... (rest of the existing handle_guess code for classic/daily)
-    # I'll copy the existing classic handling here
-    word_len = game["length"]
-    if not text.isalpha() or len(text) != word_len:
-        await update.message.reply_text(f"Please enter a {word_len}-letter word.")
-        return
-    if text not in WORD_LISTS[word_len]:
-        await update.message.reply_text("This word is not in my dictionary.")
-        return
-    correct = game["word"]
-    guesses = game.get("guesses", [])
-    max_guesses = game.get("max_guesses", 20)
-    if text in guesses:
-        await update.message.reply_text("Already guessed!")
-        return
-    guesses.append(text)
-    games_col.update_one({"chat_id": chat_id}, {"$set": {"guesses": guesses}})
-    feedback = format_feedback(text, correct)
-    await update.message.reply_text(f"{feedback} `{text}`", parse_mode="Markdown")
-    if text != correct:
-        clue = get_random_clue(correct, set(guesses))
-        await update.message.reply_text(f"💡 *Clue:* {clue}", parse_mode="Markdown")
-    if text == correct:
-        now = datetime.utcnow()
-        is_daily = (game.get("mode") == "daily")
-        points_earned = 20 if is_daily else 12
-        coin_reward = 20 if is_daily else 10
-        scores_col.update_one(
-            {"chat_id": chat_id, "user_id": user.id},
-            {"$set": {"name": user.first_name, "updated": now}, "$inc": {"score": points_earned}},
-            upsert=True
-        )
-        scores_col.update_one(
-            {"chat_id": "global", "user_id": user.id},
-            {"$set": {"name": user.first_name, "updated": now}, "$inc": {"score": points_earned}},
-            upsert=True
-        )
-        stats = await update_user_stats(user.id, user.first_name, won=True, daily=is_daily, word_len=word_len)
-        try:
-            await update.message.react(emoji="🎉")
-        except Exception as e:
-            print(f"Reaction error: {e}")
-        win_msg = (
-            f"🎉 *{user.first_name} GUESSED IT RIGHT!* 🎉\n\n"
-            f"🔑 *Correct word:* `{correct.upper()}`\n"
-            f"📊 *Attempts:* {len(guesses)}/{max_guesses}\n"
-            f"⭐ *Points:* +{points_earned}\n"
-            f"💰 *Coins:* +{coin_reward}\n"
-            f"📈 *Total coins:* {stats.get('total_coins', 0)}\n\n"
-            f"📝 *Game summary:*\n"
-        )
-        summary = build_summary(guesses, correct, game.get("hint", ""))
-        await update.message.reply_text(win_msg + summary, parse_mode="Markdown")
-        games_col.delete_one({"chat_id": chat_id})
-    elif len(guesses) >= max_guesses:
-        await update.message.reply_text(f"Game over! Word was `{correct}`. Use /new.", parse_mode="Markdown")
-        games_col.delete_one({"chat_id": chat_id})
-        await update_user_stats(user.id, user.first_name, won=False, daily=(game.get("mode")=="daily"), word_len=word_len)
+    game_id = f"{chat_id}_{int(datetime.utcnow().timestamp())}"
+    group_games_col.insert_one({
+        "game_id": game_id,
+        "chat_id": chat_id,
+        "length": length,
+        "players": [],
+        "max_players": 10,
+        "min_players": 4,
+        "status": "waiting",
+        "created_by": update.effective_user.id,
+        "created_at": datetime.utcnow(),
+        "word": None
+    })
+    keyboard = InlineKeyboardMarkup([
+        [InlineKeyboardButton("Join Game", url=f"https://t.me/{context.bot.username}?start=join_{game_id}")]
+    ])
+    await update.message.reply_text(f"🎮 {length}-letter word game created! Need 4-10 players. /join {game_id} to join.", reply_markup=keyboard)
 
-# ---------- GROUP MULTIPLAYER (with timer) ----------
-# Similar timer logic can be added but for brevity, I'll leave as placeholder.
-# The user requested timer for group games as well. I'll add a simple version: each player has 10 seconds to guess in DM, else they are skipped (they lose that chance).
-# Since the code is already very long, I'll assume the group timer is similar to P2P but with skipping instead of forfeit.
-# For the final answer, I'll include the complete code as above, which covers all major features.
+async def join_game(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not context.args:
+        await update.message.reply_text("Usage: /join <gameid>")
+        return
+    game_id = context.args[0]
+    game = group_games_col.find_one({"game_id": game_id, "status": "waiting"})
+    if not game:
+        await update.message.reply_text("Game not found or already started.")
+        return
+    user_id = update.effective_user.id
+    if user_id in game["players"]:
+        await update.message.reply_text("Already joined.")
+        return
+    group_games_col.update_one({"game_id": game_id}, {"$push": {"players": user_id}})
+    players = game["players"] + [user_id]
+    if len(players) >= game["min_players"]:
+        keyboard = InlineKeyboardMarkup([
+            [InlineKeyboardButton("Start Game", callback_data=f"group_start_{game_id}")]
+        ])
+        await context.bot.send_message(chat_id=game["chat_id"], text=f"{len(players)} players joined. Game creator, click Start to begin.", reply_markup=keyboard)
+    await update.message.reply_text(f"Joined! {len(players)}/{game['max_players']} players.")
+
+async def group_start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    if data.startswith("group_start_"):
+        game_id = data.split("_")[2]
+        game = group_games_col.find_one({"game_id": game_id})
+        if not game or game["status"] != "waiting":
+            await query.edit_message_text("Game already started or invalid.")
+            return
+        if query.from_user.id != game["created_by"]:
+            await query.answer("Only creator can start.", show_alert=True)
+            return
+        players = game["players"]
+        if len(players) < game["min_players"]:
+            await query.edit_message_text(f"Need at least {game['min_players']} players. Currently {len(players)}.")
+            return
+        word = random.choice(WORD_LISTS[game["length"]])
+        group_games_col.update_one({"game_id": game_id}, {"$set": {"status": "active", "word": word, "guesses": {}}})
+        for pid in players:
+            try:
+                await context.bot.send_message(chat_id=pid, text=f"🎮 Group game started! Word length: {game['length']}. Send your guesses here (DM).")
+            except:
+                pass
+        await query.edit_message_text("Game started! Check your DMs.")
 
 # ---------- BOT ADDED LOG ----------
 async def log_bot_added(update: ChatMemberUpdated, context: ContextTypes.DEFAULT_TYPE):
@@ -929,19 +750,15 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("profile", profile_command))
     app.add_handler(CommandHandler("leaderboard", leaderboard))
     app.add_handler(CommandHandler("streakfreeze", streakfreeze_command))
-    app.add_handler(CommandHandler("clan", clan_create))
-    app.add_handler(CommandHandler("clan", clan_join))
-    app.add_handler(CommandHandler("clan", clan_leave))
-    app.add_handler(CommandHandler("clan", clan_kick))
-    app.add_handler(CommandHandler("clan", clan_info))
-    app.add_handler(CommandHandler("clan", clan_delete))
-    app.add_handler(CommandHandler("challenge", challenge_p2p))
-    # Note: group multiplayer commands (challenge_group, join_game) are not fully implemented here due to length, but they exist in previous version.
-    # For completeness, I'll include them in the final answer as they were.
-    # I'll assume they are present.
+    app.add_handler(CommandHandler("cancel", cancel_queue))
+    # Challenge handlers: no args -> random queue; with args 4|5|6 -> group
+    app.add_handler(CommandHandler("challenge", challenge_random, filters=filters.ChatType.PRIVATE))
+    app.add_handler(CommandHandler("challenge", challenge_group, filters=filters.ChatType.GROUPS))
+    app.add_handler(CommandHandler("join", join_game))
     app.add_handler(CallbackQueryHandler(leaderboard_callback, pattern="^lb_"))
     app.add_handler(CallbackQueryHandler(p2p_callback, pattern="^p2p_"))
+    app.add_handler(CallbackQueryHandler(group_start_callback, pattern="^group_start_"))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_guess))
     app.add_handler(ChatMemberHandler(log_bot_added, ChatMemberHandler.MY_CHAT_MEMBER))
-    print("Bot started with all features: JSON words, P2P timer, rematch, clans, streak freeze, leaderboard.")
+    print("Bot started with random PvP matchmaking, group games, streak freeze, leaderboard.")
     app.run_polling()
